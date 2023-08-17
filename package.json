@@ -1,0 +1,50 @@
+{
+  "name": "@auth70/bodyguard",
+  "version": "1.0.0",
+  "description": "A simple ESM-only streaming parser for Request objects that denies requests with a body too large, too many keys or with excessive nesting",
+  "keywords": [
+    "request",
+    "fetch",
+    "body-parsing"
+  ],
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "watch": "tsc -w",
+    "test": "tsm node_modules/uvu/bin.js tests",
+    "test:coverage": "c8 --include=src npm test",
+    "test:report": "c8 report --reporter=text-lcov > coverage.lcov"
+  },
+  "homepage": "https://github.com/auth70/bodyguard",
+  "repository": "github:auth70/bodyguard",
+  "contributors": [
+    {
+      "name": "miunau",
+      "email": "miunau+npm@miunau.com",
+      "url": "https://miunau.com"
+    }
+  ],
+  "files": [
+    "dist",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@exact-realty/multipart-parser": "^1.0.7",
+    "@streamparser/json": "^0.0.16"
+  },
+  "devDependencies": {
+    "c8": "^8.0.1",
+    "tsm": "^2.3.0",
+    "typescript": "^5.1.6",
+    "uvu": "^0.5.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
+}

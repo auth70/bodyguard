@@ -79,7 +79,7 @@ See [Parsing rules](#parsing-rules) for more information.
 
 URL-encoded form data is automatically mapped into a JavaScript object, with support for:
 
-- Strings, numbers, and booleans
+- Strings and numbers
 - Nested objects and arrays using dot and square bracket syntax respectively
 
 ## Examples

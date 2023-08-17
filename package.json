@@ -1,7 +1,7 @@
 {
   "name": "@auth70/bodyguard",
-  "version": "1.0.0",
-  "description": "A simple ESM-only streaming parser for Request objects that denies requests with a body too large, too many keys or with excessive nesting",
+  "version": "1.1.0",
+  "description": "Fetch API compatible streaming JSON and form data body parser and guard",
   "keywords": [
     "request",
     "fetch",

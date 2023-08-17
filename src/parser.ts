@@ -1,14 +1,12 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
-import { ERRORS, ParserConfig, type JsonPrimitive, type JsonStruct, extractNestedKey, createByteStreamCounter, getPossibleNumber, assignNestedValue } from './lib.js';
+import { ERRORS, type ParserConfig, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast, type JSONLike, type State } from './lib.js';
 import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
-
-export type State = 'START' | 'KEY' | 'VALUE';
 
 export interface Parser {
     config: ParserConfig;
     depth: number;
     keyCount: number;
-    parse(stream: ReadableStream<Uint8Array>): Promise<JsonPrimitive | JsonStruct>;
+    parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike>;
 }
 
 export class JSONParser implements Parser {
@@ -21,7 +19,7 @@ export class JSONParser implements Parser {
         this.config = config;
     }
 
-    async parse(stream: ReadableStream<Uint8Array>): Promise<JsonPrimitive | JsonStruct> {
+    async parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike> {
         return new Promise(async (resolve, reject) => {
 
             const jsonparser = new JSONStreamingParser();
@@ -43,14 +41,14 @@ export class JSONParser implements Parser {
             };
     
             jsonparser.onValue = ({ value, key, parent, stack }) => {
-                if(key === '__proto__') return;
+                if(key === '__proto__') reject(new Error(ERRORS.INVALID_INPUT));
                 if(key && typeof key === "string" && key.length > this.config.maxKeyLength) reject(new Error(ERRORS.KEY_TOO_LONG));
                 if (stack.length > 0) return;
                 resolve(value);
             };
 
             jsonparser.onError = (error) => {
-                reject(new Error(ERRORS.INVALID_JSON));
+                reject(new Error(ERRORS.INVALID_INPUT));
             };
 
             const byteStreamCounter = createByteStreamCounter(stream, this.config.maxSize, reject);
@@ -83,21 +81,24 @@ export class URLParamsParser implements Parser {
         this.config = config;
     }
 
-    async parse(stream: ReadableStream<Uint8Array>): Promise<Record<string, any>> {
+    async parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike> {
 
         const obj: Record<string, any> = {};
         const byteStreamCounter = createByteStreamCounter(stream, this.config.maxSize);
 
         for await (const part of this.parseStream(stream.pipeThrough(byteStreamCounter))) {
+            if(!part.key || part.key === '') continue;
             if(part.keyCount > this.config.maxKeys) throw new Error(ERRORS.TOO_MANY_KEYS);
+            if(part.key.length > this.config.maxKeyLength) throw new Error(ERRORS.KEY_TOO_LONG);
             const path = extractNestedKey(part.key);
-            if(path[0] === "__proto__") continue;
+            if(path.find(s => s === "__proto__")) throw new Error(ERRORS.INVALID_INPUT);
             if(path.length > this.config.maxDepth) throw new Error(ERRORS.TOO_DEEP);
             assignNestedValue(
                 obj,
                 path,
-                getPossibleNumber(
-                    decodeURIComponent(part.value)
+                possibleCast(
+                    decodeURIComponent(part.value),
+                    this.config
                 )
             );
         }
@@ -161,7 +162,7 @@ export class FormDataParser implements Parser {
         this.boundary = boundary;
     }
 
-    async parse(stream: ReadableStream<Uint8Array>) {
+    async parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike> {
             
         const decoder = new TextDecoder();
         const byteStreamCounter = createByteStreamCounter(stream, this.config.maxSize);
@@ -185,15 +186,17 @@ export class FormDataParser implements Parser {
                 if(this.keyCount >= this.config.maxKeys) throw new Error(ERRORS.TOO_MANY_KEYS);
 
                 const match = key.match(/name="(.*)"/);
-                if(!match || !match[1] || match[1] === '' || match[1] === '__proto__') continue;
+                if(!match || !match[1] || match[1] === '') continue;
 
                 const keyName = match[1];
+                if(keyName === '__proto__') throw new Error(ERRORS.INVALID_INPUT);
+                if(keyName.length > this.config.maxKeyLength) throw new Error(ERRORS.KEY_TOO_LONG);
                 let body: string | number | boolean | Record<string, any> = '';
 
                 if(part.parts) {
                     body = await inner(part.parts);
                 } else {
-                    body = part.body ? getPossibleNumber(decoder.decode(part.body)) : '';
+                    body = part.body ? possibleCast(decoder.decode(part.body), this.config) : '';
                 }
 
                 const path = extractNestedKey(keyName);

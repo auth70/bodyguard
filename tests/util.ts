@@ -45,13 +45,26 @@ export function generateMultipartBody(formData: {[key: string]: any}, boundary: 
     return bodyArray;
 }
 
-export function createMultipartRequest(formData: {[key: string]: any}): [Request, string] {
+export function createMultipartRequest(formData: {[key: string]: any}, options?: {
+    noBoundary?: boolean;
+    brokenBoundary?: boolean;
+    prototypePollution?: boolean;
+}): [Request, string] {
     const boundary = generateBoundary();
     let bodyArray: string[] = generateMultipartBody(formData, boundary);
+
+    if(options?.prototypePollution) {
+        bodyArray.push('');
+        bodyArray.push(`--${boundary}`);
+        bodyArray.push(`Content-Disposition: form-data; name="__proto__"`);
+        bodyArray.push('');
+        bodyArray.push('a');
+    }
+
     bodyArray.push(`--${boundary}--`);
     bodyArray.push('');
 
-    const bodyStr = bodyArray.join('\r\n');
+    let bodyStr = bodyArray.join('\r\n');
 
     const stream = new ReadableStream({
         start(controller) {
@@ -60,10 +73,20 @@ export function createMultipartRequest(formData: {[key: string]: any}): [Request
         }
     })
 
+    let hdr = `multipart/form-data; boundary=${boundary}`;
+
+    if(options?.noBoundary) {
+        hdr = "multipart/form-data";
+    }
+
+    if(options?.brokenBoundary) {
+        hdr = `multipart/form-data; boundary=`;
+    }
+
     return [new Request("http://localhost", ({
         method: "POST",
         headers: {
-            "content-type": `multipart/form-data; boundary=${boundary}`,
+            "content-type": hdr,
             "content-length": bodyStr.length.toString()
         },
         body: stream,

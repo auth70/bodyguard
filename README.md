@@ -1,60 +1,71 @@
 # @auth70/bodyguard
 
+```bash
+npm install --save @auth70/bodyguard
+```
+
 ## Description
 
-Opinionated [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) body parser and guard for Fetch API objects with no Node.js specific dependencies, specifically intended for RESTful and form parsing.
+Opinionated Fetch API compatible streaming body parser and guard with no Node.js specific dependencies.
 
 ### Features
 
-- Simple ESM-only API that's hard to mess up, written in TypeScript.
-- Supports only the most common content types for JSON and form parsing.
+- Simple, 100% test covered, ESM-only API that's hard to mess up written in TypeScript.
+- Supports only UTF-8 and the most common content types for JSON and form parsing.
 - Automatically parses JSON and form data streams into JavaScript objects.
 - Prevents resource exhaustion by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
 - Allows nested object and array form data with dot and square bracket syntax in both multipart and URL-encoded forms.
 - Allows nested (multi-boundary) multipart form data.
-- Optionally enforce parsed data to pass a user-chosen schema validator (e.g. Zod)
+- *Optional:* Enforce parsed data to pass a user-chosen schema validator (e.g. Zod).
+- *Optional:* Cast numbers and booleans from strings in form data.
 
 ### TODO
 
 - File uploads in multipart form data.
 
-## Installation
-
-```bash
-npm install --save @auth70/bodyguard
-```
-
 ## Usage
 
-Initialise a Bodyguard instance with your preferred options and use it as a singleton or attach it to your requests. 
+Initialise a Bodyguard instance with your preferred options and use it as a singleton.
 
 ```ts
-// All options are optional
+import { Bodyguard } from '@auth70/bodyguard';
+
+// All arguments are optional with their defaults shown below
 const bodyguard = new Bodyguard({
     maxSize: 1024 * 1024 * 1, // Default: 1MB
     maxKeys: 100, // Default: Allows up to 100 total keys
     maxDepth: 10, // Default: Allows up to 10 levels of nesting
     maxKeyLength: 100, // Default: Allows up to 100 characters per key
+    castNumbers: true, // Default: DOES automatically cast numbers
+    castBooleans: false, // Default: does NOT automatically cast "true" and "false" as boolean
     validator: (obj, schema) => {
-        return {
-            success: true,
-            value: obj,
-        }
+        if(obj.a !== schema.a) throw new Error('a is not correct');
     }, // Default: No validator
 });
 ```
 
 Then in a route, use:
 
-- `json()`/`form()` (throws an error), or
-- `softJson()`/`softForm()` (returns an error)
+- `json(request, schema, options)`/`form(request, schema, options)` (throws an error), or
+- `softJson(request, schema, options)`/`softForm(request, schema, options)` (returns an error)
 
-to parse the request body into a JavaScript object.
+to parse the request body into a JavaScript object. `options` are the same options you can pass to the constructor, including `validator`. Any options will override the constructor options.
 
 ```ts
-const { success, value } = await bodyguard.softForm(request, schema);
+const routeOptions = {
+    maxKeys: 1000
+}
+const { success, value } = await bodyguard.softForm(request, schema, routeOptions);
+/**
+ * success: boolean
+ * error?: Error
+ * value?: typeof schema
+ */
 ```
 
+### Response body parsing
+
+Even though these examples focus on Request bodies, there is nothing stopping you from using Bodyguard to parse and guard Response bodies as well, e.g. from user-supplied, untrusted APIs or webhooks.
 
 ### Supported content types
 
@@ -68,8 +79,8 @@ Using [@exact-realty/multipart-parser](https://github.com/Exact-Realty/ts-multip
 
 Form data is automatically mapped into a JavaScript object, with support for:
 
-- Strings
-- Numbers
+- Strings and numbers
+- Optionally casted booleans
 - Nested objects using dot notation syntax
 - Nested arrays using square bracket syntax, with support for both numeric and auto-incrementing indexes
 
@@ -77,10 +88,14 @@ See [Parsing rules](#parsing-rules) for more information.
 
 #### application/x-www-form-urlencoded
 
+Using an internal streaming parser.
+
 URL-encoded form data is automatically mapped into a JavaScript object, with support for:
 
 - Strings and numbers
-- Nested objects and arrays using dot and square bracket syntax respectively
+- Optionally casted booleans
+- Nested objects using dot notation syntax
+- Nested arrays using square bracket syntax, with support for both numeric and auto-incrementing indexes
 
 ## Examples
 
@@ -113,11 +128,7 @@ export {};
 import { Bodyguard } from '@auth70/bodyguard';
 import type { Handle } from '@sveltejs/kit'
 
-const bodyguard = new Bodyguard({
-  maxSize: 1024 * 1024 * 1, // 1MB
-  maxKeys: 100,
-  maxDepth: 10,
-});
+const bodyguard = new Bodyguard();
 
 export const handle = (async ({ event, resolve }) => {
     event.locals.bodyguard = bodyguard;
@@ -134,16 +145,17 @@ const RouteSchema = z.object({ name: z.string() });
 
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await locals.bodyguard.form(request, RouteSchema);
+        const { success, value } = await locals.bodyguard.softForm(request, RouteSchema);
         /**
          * success: boolean
-         * value: { id: number; name: string }
+         * error?: Error
+         * value?: { name: string }
          */
-        return {
-            status: 302,
-            headers: {
-                location: `/${value.name}`,
-            },
+        if(!success) {
+            return {
+                status: 400,
+                body: JSON.stringify({ error: error.message }),
+            }
         }
     },
 } satisfies Actions;
@@ -154,7 +166,49 @@ export const actions = {
 
 <details id="hono-example">
 <summary><strong>Expand example</strong></summary>
-TODO (PR welcome)
+
+**src/index.ts**
+
+```ts
+import { Bodyguard } from '@auth70/bodyguard';
+import { Hono } from 'hono'
+
+const app = new Hono()
+const bodyguard = new Bodyguard();
+
+app.use(
+    '*',
+        async (c, next) => {
+            c.locals.bodyguard = bodyguard;
+            return next();
+        }
+    }
+)
+
+const RouteSchema = z.object({ name: z.string() });
+
+app.post('/page', (c) => {
+    const { success, value } = await c.locals.bodyguard.softForm(c.request, RouteSchema);
+    /**
+     * success: boolean
+     * error?: Error
+     * value?: { name: string }
+     */
+    if(!success) {
+        return {
+            status: 400,
+            body: JSON.stringify({ error: error.message }),
+        }
+    }
+    return {
+        status: 302,
+        headers: {
+            location: `/${value.name}`,
+        },
+    }
+})
+```
+
 </details>
 
 ### Next.js example
@@ -232,6 +286,68 @@ Comes out as:
     },
 }
 ```
+
+## API
+
+### Constructor
+
+#### `new Bodyguard(options)`
+
+- `options` (optional): `BodyguardOptions`
+
+### Types
+
+#### `BodyguardOptions`
+
+- `maxSize` (optional): `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
+- `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
+- `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
+- `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
+- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings. Default: `true`
+- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans. Default: `false`
+- `validator` (optional): `(obj: JSONLike, schema?: any) => void` - A function that validates the parsed object against a schema. Default: `undefined`
+
+#### `ParserResult<T> = ParserSuccess<T> | ParserError`
+
+- `success`: `boolean` - Whether the parsing was successful.
+- `error` (optional): `Error` - The error that occurred, if any.
+- `value` (optional): `T` - The parsed value, if successful.
+
+#### `ParserSuccess<T>`
+
+- `success`: `true`
+- `value`: `T`
+
+#### `ParserError`
+
+- `success`: `false`
+- `error`: `Error`
+
+### Methods
+
+#### `Bodyguard.json(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<T>`
+
+- `request`: `Request` - The request to parse.
+- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
+- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+
+#### `Bodyguard.form(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<T>`
+
+- `request`: `Request` - The request to parse.
+- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
+- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+
+#### `Bodyguard.softJson(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<ParserResult<T>>`
+
+- `request`: `Request` - The request to parse.
+- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
+- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+
+#### `Bodyguard.softForm(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<ParserResult<T>>`
+
+- `request`: `Request` - The request to parse.
+- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
+- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
 
 ## Contributing
 

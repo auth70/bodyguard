@@ -22,7 +22,8 @@ export class Bodyguard {
      *     maxDepth: 10, // Maximum depth of an object or array.
      *     maxSize: 1024 * 1024, // Maximum size of a Request or Response body in bytes.
      *     maxKeyLength: 100, // Maximum length of a key in characters.
-     *     validate: (obj, validator) => ({ success: true, value: obj }
+     *     castBooleans: false, // Whether to cast boolean values to boolean type.
+     *     castNumbers: true, // Whether to cast numeric values to number type.
      * });
      */
     constructor(

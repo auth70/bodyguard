@@ -16,7 +16,7 @@ Opinionated Fetch API compatible streaming body parser and guard with no Node.js
 - Prevents resource exhaustion by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
 - Allows nested object and array form data with dot and square bracket syntax in both multipart and URL-encoded forms.
 - Allows nested (multi-boundary) multipart form data.
-- *Optional:* Enforce parsed data to pass a user-chosen validator validator (e.g. Zod).
+- *Optional:* Enforce parsed data to pass a user-chosen validator validator (e.g. Zod) - this gives you types on the result object.
 - *Optional:* Cast numbers and booleans from strings in form data.
 
 ### TODO

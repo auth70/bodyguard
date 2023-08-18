@@ -36,7 +36,7 @@ test('it passes nested multipart form with arrays (softForm with multipart)', as
 
     const [req, boundary] = createMultipartRequest(reqData);
 
-    const result = await bodyguard.softForm(req, reqData);
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, true);
     
@@ -81,11 +81,7 @@ test('it casts numbers and booleans (softForm with multipart)', async () => {
         c: "false",
     });
 
-    const result = await bodyguard.softForm(req, {
-        a: 1,
-        b: true,
-        c: false
-    });
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, true);
 
@@ -158,10 +154,7 @@ test('it fails on too many input bytes (softForm with multipart)', async () => {
         }
     });
 
-    const result = await bodyguard.softForm(req, {
-        a: 1,
-        b: 2
-    });
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, false);
 
@@ -190,10 +183,7 @@ test('it fails on too many input keys (softForm with multipart)', async () => {
         }
     });
 
-    const result = await bodyguard.softForm(req, {
-        a: 1,
-        b: 2
-    });
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, false);
 
@@ -246,10 +236,7 @@ test('it fails on broken boundary in header (softForm with multipart)', async ()
         brokenBoundary: true
     });
 
-    const result = await bodyguard.softForm(req, {
-        a: 1,
-        b: 2
-    });
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, false);
 
@@ -272,10 +259,7 @@ test('it fails on no boundary in header (softForm with multipart)', async () => 
         noBoundary: true
     });
 
-    const result = await bodyguard.softForm(req, {
-        a: 1,
-        b: 2
-    });
+    const result = await bodyguard.softForm(req);
 
     assert.equal(result.success, false);
 

@@ -5,9 +5,9 @@ export const MAX_KEY_LENGTH = 100;
 
 export type State = 'START' | 'KEY' | 'VALUE';
 
-export type BodyValidator = (obj: JSONLike, schema?: any) => void | Promise<void>;
+export type BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T;
 
-export type ParserConfig = {
+export type BodyguardConfig = {
     maxKeys: number;
     maxDepth: number;
     maxSize: number;
@@ -16,12 +16,12 @@ export type ParserConfig = {
     castBooleans: boolean;
 }
 
-export type ParserError = {
+export type BodyguardError = {
     success: false;
     error: string;
 };
 
-export type ParserSuccess<T> = {
+export type BodyguardSuccess<T = JSONLike> = {
     success: true;
     value: T;
 };
@@ -34,7 +34,7 @@ export type JSONLike =
     | boolean
     | null;
 
-export type ParserResult<SuccessType> = ParserSuccess<SuccessType> | ParserError;
+export type BodyguardResult<SuccessType = JSONLike> = BodyguardSuccess<SuccessType> | BodyguardError;
 
 export const CONTENT_TYPES = [
     "application/json",
@@ -69,7 +69,7 @@ export function createByteStreamCounter(stream: ReadableStream<Uint8Array>, maxS
     });
 }
 
-export function possibleCast(value: string, config: ParserConfig) {
+export function possibleCast(value: string, config: BodyguardConfig) {
     value = value.replace(/[\r\n]+$/, '');
     if(value.trim() === '') return value;
     if(!isNaN(Number(value)) && config.castNumbers) return Number(value);

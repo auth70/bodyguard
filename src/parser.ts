@@ -1,9 +1,9 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
-import { ERRORS, type ParserConfig, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast, type JSONLike, type State } from './lib.js';
+import { ERRORS, type BodyguardConfig, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast, type JSONLike, type State } from './lib.js';
 import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
 
 export interface Parser {
-    config: ParserConfig;
+    config: BodyguardConfig;
     depth: number;
     keyCount: number;
     parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike>;
@@ -11,11 +11,11 @@ export interface Parser {
 
 export class JSONParser implements Parser {
 
-    config: ParserConfig;
+    config: BodyguardConfig;
     depth = 0;
     keyCount = 0;
 
-    constructor(config: ParserConfig) {
+    constructor(config: BodyguardConfig) {
         this.config = config;
     }
 
@@ -66,7 +66,7 @@ export class JSONParser implements Parser {
 
 export class URLParamsParser implements Parser {
 
-    config: ParserConfig;
+    config: BodyguardConfig;
     depth = 0;
     keyCount = 0;
 
@@ -77,7 +77,7 @@ export class URLParamsParser implements Parser {
     private EQUALS = '='.charCodeAt(0);
     private AMPERSAND = '&'.charCodeAt(0);
 
-    constructor(config: ParserConfig) {
+    constructor(config: BodyguardConfig) {
         this.config = config;
     }
 
@@ -151,13 +151,13 @@ export class URLParamsParser implements Parser {
 
 export class FormDataParser implements Parser {
 
-    config: ParserConfig;
+    config: BodyguardConfig;
     depth = 0;
     keyCount = 0;
 
     private boundary = '';
 
-    constructor(config: ParserConfig, boundary: string) {
+    constructor(config: BodyguardConfig, boundary: string) {
         this.config = config;
         this.boundary = boundary;
     }

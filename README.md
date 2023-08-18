@@ -16,7 +16,7 @@ Opinionated Fetch API compatible streaming body parser and guard with no Node.js
 - Prevents resource exhaustion by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
 - Allows nested object and array form data with dot and square bracket syntax in both multipart and URL-encoded forms.
 - Allows nested (multi-boundary) multipart form data.
-- *Optional:* Enforce parsed data to pass a user-chosen schema validator (e.g. Zod).
+- *Optional:* Enforce parsed data to pass a user-chosen validator validator (e.g. Zod).
 - *Optional:* Cast numbers and booleans from strings in form data.
 
 ### TODO
@@ -36,18 +36,15 @@ const bodyguard = new Bodyguard({
     maxKeys: 100, // Default: Allows up to 100 total keys
     maxDepth: 10, // Default: Allows up to 10 levels of nesting
     maxKeyLength: 100, // Default: Allows up to 100 characters per key
-    castNumbers: true, // Default: DOES automatically cast numbers
-    castBooleans: false, // Default: does NOT automatically cast "true" and "false" as boolean
-    validator: (obj, schema) => {
-        if(obj.a !== schema.a) throw new Error('a is not correct');
-    }, // Default: No validator
+    castNumbers: true, // Default: DOES automatically cast numbers in form data
+    castBooleans: false, // Default: does NOT automatically cast "true" and "false" as boolean in form data
 });
 ```
 
 Then in a route, use:
 
-- `json(request, schema, options)`/`form(request, schema, options)` (throws an error), or
-- `softJson(request, schema, options)`/`softForm(request, schema, options)` (returns an error)
+- `json(request, validator, options)`/`form(request, validator, options)` (throws an error), or
+- `softJson(request, validator, options)`/`softForm(request, validator, options)` (returns an error)
 
 to parse the request body into a JavaScript object. `options` are the same options you can pass to the constructor, including `validator`. Any options will override the constructor options.
 
@@ -55,13 +52,15 @@ to parse the request body into a JavaScript object. `options` are the same optio
 const routeOptions = {
     maxKeys: 1000
 }
-const { success, value } = await bodyguard.softForm(request, schema, routeOptions);
+const { success, value } = await bodyguard.softForm(request, validator, routeOptions);
 /**
  * success: boolean
  * error?: Error
- * value?: typeof schema
+ * value?: typeof validator
  */
 ```
+
+See [the API section](#api) for more information.
 
 ### Response body parsing
 
@@ -145,7 +144,7 @@ const RouteSchema = z.object({ name: z.string() });
 
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await locals.bodyguard.softForm(request, RouteSchema);
+        const { success, value } = await locals.bodyguard.softForm(request, RouteSchema.parse);
         /**
          * success: boolean
          * error?: Error
@@ -156,6 +155,12 @@ export const actions = {
                 status: 400,
                 body: JSON.stringify({ error: error.message }),
             }
+        }
+        return {
+            status: 302,
+            headers: {
+                location: `/${value.name}`,
+            },
         }
     },
 } satisfies Actions;
@@ -188,7 +193,7 @@ app.use(
 const RouteSchema = z.object({ name: z.string() });
 
 app.post('/page', (c) => {
-    const { success, value } = await c.locals.bodyguard.softForm(c.request, RouteSchema);
+    const { success, value } = await c.locals.bodyguard.softForm(c.request, RouteSchema.parse);
     /**
      * success: boolean
      * error?: Error
@@ -291,63 +296,98 @@ Comes out as:
 
 ### Constructor
 
-#### `new Bodyguard(options)`
+#### `new Bodyguard(config)`
 
-- `options` (optional): `BodyguardOptions`
+- `options` (optional): `BodyguardConfig`
 
 ### Types
 
-#### `BodyguardOptions`
+#### `BodyguardConfig`
 
 - `maxSize` (optional): `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
 - `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
 - `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
 - `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
-- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings. Default: `true`
-- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans. Default: `false`
-- `validator` (optional): `(obj: JSONLike, schema?: any) => void` - A function that validates the parsed object against a schema. Default: `undefined`
+- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `true`
+- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 
-#### `ParserResult<T> = ParserSuccess<T> | ParserError`
+#### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError`
 
 - `success`: `boolean` - Whether the parsing was successful.
 - `error` (optional): `Error` - The error that occurred, if any.
 - `value` (optional): `T` - The parsed value, if successful.
 
-#### `ParserSuccess<T>`
+#### `BodyguardSuccess<T>`
 
 - `success`: `true`
 - `value`: `T`
 
-#### `ParserError`
+#### `BodyguardError`
 
 - `success`: `false`
 - `error`: `Error`
 
-### Methods
+#### `BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T`
 
-#### `Bodyguard.json(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<T>`
+### JSON parsing
+
+#### `Bodyguard.softJson(input: Request | Response, validator?: T, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses a JSON stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+
+Returns a `BodyguardResult`:
+
+```ts
+{
+    success: boolean,
+    error?: Error,
+    value?: ReturnType<ValidatorType>,
+}
+```
+
+#### `Bodyguard.json(input, validator?, config?): Promise<ReturnType<ValidatorType>>`
+
+Parses a JSON stream into a JavaScript object. Errors are thrown.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+
+Returns the parsed object (not a `BodyguardResult`).
+
+### Form parsing
+
+#### `Bodyguard.softForm(input: Request | Response, validator?: T, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
 - `request`: `Request` - The request to parse.
-- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
+- `validator` (optional): `ValidatorType extends BodyguardValidator` - A validator to validate the parsed object against. Default: `undefined`
 - `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
 
-#### `Bodyguard.form(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<T>`
+Returns a `BodyguardResult`:
 
-- `request`: `Request` - The request to parse.
-- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
-- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+```ts
+{
+    success: boolean,
+    error?: Error,
+    value?: ReturnType<ValidatorType>,
+}
+```
 
-#### `Bodyguard.softJson(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<ParserResult<T>>`
+#### `Bodyguard.form(input, validator?, options?): Promise<ReturnType<ValidatorType>>`
 
-- `request`: `Request` - The request to parse.
-- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
-- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+Parses an urlencoded or multipart form data stream into a JavaScript object. Errors are thrown.
 
-#### `Bodyguard.softForm(input: Request | Response, schema?: T, options?: BodyguardOptions): Promise<ParserResult<T>>`
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
 
-- `request`: `Request` - The request to parse.
-- `schema` (optional): `T` - A schema to validate the parsed object against. Default: `undefined`
-- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+Returns the parsed object (not a `BodyguardResult`).
 
 ## Contributing
 

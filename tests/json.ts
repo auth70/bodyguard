@@ -26,7 +26,7 @@ test('it throws on prototype pollution (softJson)', async () => {
 
 });
 
-test('it fails with no body validator (softJson)', async () => {
+test('it fails with no body (softJson)', async () => {
 
     const bodyguard = new Bodyguard();
 
@@ -37,7 +37,7 @@ test('it fails with no body validator (softJson)', async () => {
         },
     });
 
-    const result = await bodyguard.softJson(req, { a: 1, c: 2 });
+    const result = await bodyguard.softJson(req);
 
     assert.equal(result.success, false);
 
@@ -50,12 +50,7 @@ test('it fails with no body validator (softJson)', async () => {
 
 test('it passes json with validator (softJson)', async () => {
 
-    const bodyguard = new Bodyguard({
-        validator: (value, schema) => {
-            if(value?.a !== schema?.a) throw new Error('a does not match');
-            if(value?.b !== schema?.b) throw new Error('b does not match');
-        }
-    });
+    const bodyguard = new Bodyguard();
 
     const obj = {
         a: 1,
@@ -70,7 +65,11 @@ test('it passes json with validator (softJson)', async () => {
         body: JSON.stringify(obj)
     });
 
-    const result = await bodyguard.softJson(req, { a: 1, b: 2 });
+    const result = await bodyguard.softJson(req, (obj) => {
+        if(typeof obj.a !== 'number') throw new Error('a is not a number');
+        if(typeof obj.b !== 'number') throw new Error('b is not a number');
+        return obj as { a: number, b: number };
+    });
 
     assert.equal(result.success, true);
 
@@ -85,16 +84,11 @@ test('it passes json with validator (softJson)', async () => {
 
 test('it fails json with validator (softJson)', async () => {
 
-    const bodyguard = new Bodyguard({
-        validator: (value, schema) => {
-            if(value?.a !== schema?.a) throw new Error('a does not match');
-            if(value?.b !== schema?.b) throw new Error('b does not match');
-        }
-    });
+    const bodyguard = new Bodyguard();
 
     const obj = {
         a: 1,
-        b: 2
+        b: "2"
     };
 
     const req = new Request("http://localhost", {
@@ -105,7 +99,11 @@ test('it fails json with validator (softJson)', async () => {
         body: JSON.stringify(obj)
     });
 
-    const result = await bodyguard.softJson(req, { a: 1, c: 2 });
+    const result = await bodyguard.softJson(req, (obj) => {
+        if(typeof obj.a !== 'number') throw new Error('a is not a number');
+        if(typeof obj.b !== 'number') throw new Error('b is not a number');
+        return obj as { a: number, b: number };
+    });
 
     assert.equal(result.success, false);
 
@@ -135,7 +133,7 @@ test('it passes nested json with arrays (softJson)', async () => {
         body: JSON.stringify(obj)
     });
 
-    const result = await bodyguard.softJson(req, obj);
+    const result = await bodyguard.softJson(req);
 
     assert.equal(result.success, true);
 

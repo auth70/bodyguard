@@ -269,4 +269,43 @@ test('it fails on no boundary in header (softForm with multipart)', async () => 
 
 });
 
+
+test('it passes webkit boundary without a preceding newline (softForm with multipart)', async () => {
+
+    const bodyguard = new Bodyguard({
+    });
+
+    const bodyArr = [
+        '------WebKitFormBoundarylD5CPrRLWMEri7nf',
+        'Content-Disposition: form-data; name="password"',
+        '',
+        'stset',
+        '------WebKitFormBoundarylD5CPrRLWMEri7nf--',
+        ''
+    ]
+
+    const bodyStr = bodyArr.join('\r\n');
+
+    const stream = new ReadableStream({
+        start(controller) {
+            controller.enqueue(new TextEncoder().encode(bodyStr));
+            controller.close();
+        }
+    })
+
+    const req = new Request("http://localhost", {
+        method: "POST",
+        headers: {
+            "content-type": "multipart/form-data; boundary=----WebKitFormBoundarylD5CPrRLWMEri7nf"
+        },
+        body: stream,
+        duplex: "half"
+    });
+
+    const result = await bodyguard.softForm(req);
+    assert.equal(result.success, true);
+
+
+});
+
 test.run();

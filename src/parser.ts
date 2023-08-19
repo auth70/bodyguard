@@ -166,7 +166,27 @@ export class FormDataParser implements Parser {
             
         const decoder = new TextDecoder();
         const byteStreamCounter = createByteStreamCounter(stream, this.config.maxSize);
-        const result = parseMultipartMessage(stream.pipeThrough(byteStreamCounter), this.boundary);
+
+        let firstChunk = true;
+
+        // Fix for multipart/form-data streams that don't start with a newline but the boundary
+        const fixStream = new TransformStream({
+            transform(chunk, controller) {
+                if(firstChunk) {
+                    firstChunk = false;
+                    let text = decoder.decode(chunk);
+                    // check if there is no newline before the boundary
+                    if(text.indexOf('\r\n') !== 0 && text.indexOf('--') === 0) {
+                        text = `\r\n${text}`;
+                    }
+                    controller.enqueue(new TextEncoder().encode(text));
+                } else {
+                    controller.enqueue(chunk);
+                }
+            }
+        })
+
+        const result = parseMultipartMessage(stream.pipeThrough(fixStream).pipeThrough(byteStreamCounter), this.boundary);
 
         /**
          * Parse an incoming stream of multipart/form-data
@@ -178,7 +198,7 @@ export class FormDataParser implements Parser {
             this.depth++;
             if(this.depth >= this.config.maxDepth) throw new Error(ERRORS.TOO_DEEP);
             for await (const part of result) {
-                
+
                 const key = part.headers.get('content-disposition');
                 if(!key || !key.startsWith('form-data')) continue;
 

@@ -15,7 +15,6 @@ export function generateMultipartBody(formData: {[key: string]: any}, boundary: 
         if (typeof formData[key] === 'object' && !Array.isArray(formData[key]) && formData[key] !== null) {
             // This is a nested object. We need a new boundary.
             const nestedBoundary = generateBoundary();
-            bodyArray.push('');
             bodyArray.push(`--${boundary}`);
             bodyArray.push(`Content-Disposition: form-data; name="${key}"`);
             bodyArray.push(`Content-Type: multipart/mixed; boundary=${nestedBoundary}`);
@@ -27,14 +26,12 @@ export function generateMultipartBody(formData: {[key: string]: any}, boundary: 
             bodyArray.push('');
         } else if(Array.isArray(formData[key])) {
             formData[key].forEach((val: any, index: number) => {
-                bodyArray.push('');
                 bodyArray.push(`--${boundary}`);
                 bodyArray.push(`Content-Disposition: form-data; name="${key}[]"`);
                 bodyArray.push('');
                 bodyArray.push(val);
             });
         } else {
-            bodyArray.push('');
             bodyArray.push(`--${boundary}`);
             bodyArray.push(`Content-Disposition: form-data; name="${key}"`);
             bodyArray.push('');

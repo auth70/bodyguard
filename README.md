@@ -231,11 +231,11 @@ JSON data is returned like `JSON.parse()` would return it.
 
 #### Numbers
 
-If the value passes `!isNaN()` it's cast as a number. i.e. `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc.
+*Numbers are cast automatically by default!* If the value passes `!isNaN()` it's cast as a number. i.e. `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc.
 
 #### Booleans
 
-*Booleans are not cast automatically by default.* If the value is `"true"` or `"false"`, it's **not** cast as a boolean but returned as a string unless you specify `castBooleans` as `true` in parser configuration. This is to prevent accidental casting of values that are not intended to be booleans.
+*Booleans are NOT cast automatically by default!* If the value is `"true"` or `"false"`, it's **not** cast as a boolean but returned as a string unless you specify `castBooleans` as `true` in parser configuration. This is to prevent accidental casting of values that are not intended to be booleans.
 
 #### Empty strings
 
@@ -326,7 +326,7 @@ Comes out as:
 
 ### JSON parsing
 
-#### `Bodyguard.softJson(input: Request | Response, validator?: T, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softJson(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses a JSON stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
@@ -344,7 +344,7 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.json(input, validator?, config?): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.json(input: Request | Response, validator?: ValidatorType, config?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
 
 Parses a JSON stream into a JavaScript object. Errors are thrown.
 
@@ -356,7 +356,7 @@ Returns the parsed object (not a `BodyguardResult`).
 
 ### Form parsing
 
-#### `Bodyguard.softForm(input: Request | Response, validator?: T, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softForm(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
@@ -374,7 +374,7 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.form(input, validator?, options?): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.form(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
 
 Parses an urlencoded or multipart form data stream into a JavaScript object. Errors are thrown.
 

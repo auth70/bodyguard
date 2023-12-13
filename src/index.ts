@@ -23,7 +23,7 @@ export class Bodyguard {
      *     maxSize: 1024 * 1024, // Maximum size of a Request or Response body in bytes.
      *     maxKeyLength: 100, // Maximum length of a key in characters.
      *     castBooleans: false, // Whether to cast boolean values to boolean type.
-     *     castNumbers: true, // Whether to cast numeric values to number type.
+     *     castNumbers: false, // Whether to cast numeric values to number type.
      * });
      */
     constructor(
@@ -33,7 +33,7 @@ export class Bodyguard {
             maxSize: MAX_SIZE,
             maxKeyLength: MAX_KEY_LENGTH,
             castBooleans: false,
-            castNumbers: true,
+            castNumbers: false,
         },
     ) {
         this.config = {
@@ -42,7 +42,7 @@ export class Bodyguard {
             maxSize: config.maxSize && typeof config.maxSize === 'number' && config.maxSize > 0 ? config.maxSize : MAX_SIZE,
             maxKeyLength: config.maxKeyLength && typeof config.maxKeyLength === 'number' && config.maxKeyLength > 0 ? config.maxKeyLength : MAX_KEY_LENGTH,
             castBooleans: config.castBooleans !== undefined && typeof config.castBooleans === 'boolean' ? config.castBooleans : false,
-            castNumbers: config.castNumbers !== undefined && typeof config.castNumbers === 'boolean' ? config.castNumbers : true,
+            castNumbers: config.castNumbers !== undefined && typeof config.castNumbers === 'boolean' ? config.castNumbers : false,
         };
     }
 

@@ -36,8 +36,8 @@ const bodyguard = new Bodyguard({
     maxKeys: 100, // Default: Allows up to 100 total keys
     maxDepth: 10, // Default: Allows up to 10 levels of nesting
     maxKeyLength: 100, // Default: Allows up to 100 characters per key
-    castNumbers: true, // Default: DOES automatically cast numbers in form data
-    castBooleans: false, // Default: does NOT automatically cast "true" and "false" as boolean in form data
+    castNumbers: false, // Default: Does NOT automatically cast numbers in form data
+    castBooleans: false, // Default: Does NOT automatically cast "true" and "false" as boolean in form data
 });
 ```
 

@@ -1,4 +1,4 @@
-![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/8f2d7f26-e32c-47e0-95c9-4a88ea89cf06)
+![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/a9f8d38f-c9aa-41dd-99f9-31883a9d17e7)
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@auth70/bodyguard">

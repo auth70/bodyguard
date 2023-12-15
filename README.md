@@ -9,7 +9,7 @@
   </a>
 </p>
 
-<h1 align="center">Bodyguard</h1>
+<h1>Bodyguard</h1>
 
 Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible streaming body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
 

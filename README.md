@@ -1,6 +1,7 @@
-![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/a9f8d38f-c9aa-41dd-99f9-31883a9d17e7)
+![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/e4fdab2d-a583-4fb8-9f75-2984ef320de1)
 
 <p align="center">
+
   <a href="https://www.npmjs.com/package/@auth70/bodyguard">
     <img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm">
   </a>

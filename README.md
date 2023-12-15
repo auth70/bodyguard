@@ -9,11 +9,11 @@
   </a>
 </p>
 
-<h1>Bodyguard</h1>
+# Bodyguard
 
 Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible streaming body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
 
-It takes in a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) or [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object and parses its body into a JavaScript object. If you pass a typed schema validator using [Zod](https://zod.dev/) or similar library, the resulting object will also be typed.
+Takes in a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) or [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object and parses its body into a JavaScript object. If you pass a typed schema validator using [Zod](https://zod.dev/) or similar library, the resulting object will also be typed.
 
 ## Quickstart
 
@@ -42,7 +42,7 @@ npm install --save @auth70/bodyguard
 
 ## Usage
 
-**Each method in Bodyguard has two versions.** One that throws an error if the body is invalid (e.g. `pat()`), and one that returns an error instead (e.g. `softPat()`). You may pick whichever suits your workflow.
+**Each method in Bodyguard has two versions.** One that throws an error if the body is invalid (e.g. `form()`), and one that returns an error instead (e.g. `softForm()`). You may pick whichever suits your workflow.
 
 **If you pass in a validator, it *has* to throw an error if the data is invalid.** If the data is valid, it should return the parsed data. If you don't pass in a validator, the parsed data is returned as-is.
 
@@ -112,43 +112,43 @@ See [the API section](#api) for more information.
 
 Even though these examples focus on Request bodies, there is nothing stopping you from using Bodyguard to parse and guard Response bodies as well, e.g. from user-supplied, untrusted APIs or webhooks.
 
-### Parsing rules
+## Parsing rules
 
-#### JSON
+### JSON
 
 JSON data is returned like `JSON.parse()` would return it.
 
-#### Form data
+### Form data
 
-##### Multipart forms
+#### Multipart forms
 
 Trailing newlines are stripped from the end of values.
 
-##### URL-encoded forms
+#### URL-encoded forms
 
 Values are decoded using `decodeURIComponent()`
 
-##### Numbers
+#### Numbers
 
 *Auto-cast numbers by passing `castNumbers: true` as an option.*
 
 If the value passes `!isNaN()` it's cast as a number. For example, `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc. *This is disabled by default*.
 
-##### Booleans
+#### Booleans
 
 *Auto-cast booleans by passing `castBooleans: true` as an option.*
 
 If the value is `"true"` or `"false"`, it's cast as a boolean. For example, `"true"` is returned as `true`, `"false"` is returned as `false`. *This is disabled by default*.
 
-##### Empty strings
+#### Empty strings
 
 Empty strings are returned as empty strings (`""`), not `null` or `undefined`.
 
-##### Array indices with gaps
+#### Array indices with gaps
 
 Array indices with gaps are returned as sparse arrays. For example, `foo[1] = "3"` is returned as `foo: [undefined, 3]`.
 
-##### Object and array form data
+#### Object and array form data
 
 To parse objects from form data, use dot notation in the input name accessor. For arrays, use square brackets.
 
@@ -197,48 +197,19 @@ The above comes out as:
 <details>
 <summary><strong>Expand example</strong></summary>
 
-**src/global.d.ts**
-
-```ts
-/// <reference types="@sveltejs/kit" />
-
-import type { Bodyguard } from '@auth70/bodyguard';
-
-declare global {
-    namespace App {
-        interface Locals {
-            bodyguard: Bodyguard
-        }
-    }
-}
-
-export {};
-```
-
-**src/hooks.server.ts**
-
-```ts
-import { Bodyguard } from '@auth70/bodyguard';
-import type { Handle } from '@sveltejs/kit'
-
-const bodyguard = new Bodyguard();
-
-export const handle = (async ({ event, resolve }) => {
-    event.locals.bodyguard = bodyguard;
-    return resolve(event);
-}) satisfies Handle;
-```
-
 **routes/+page.server.ts**
 
 ```ts
 import { z } from 'zod';
+import { Bodyguard } from '@auth70/bodyguard';
+
+const bodyguard = new Bodyguard(); // Or use a singleton, or put it in locals
 
 const RouteSchema = z.object({ name: z.string() });
 
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await locals.bodyguard.softForm(request, RouteSchema.parse);
+        const { success, value } = await bodyguard.softForm(request, RouteSchema.parse);
         /**
          * success: boolean
          * error?: Error
@@ -278,7 +249,7 @@ const bodyguard = new Bodyguard();
 app.use(
     '*',
         async (c, next) => {
-            c.locals.bodyguard = bodyguard;
+            c.locals.bodyguard = bodyguard; // As a singleton in locals
             return next();
         }
     }
@@ -326,7 +297,7 @@ app.post('/page', (c) => {
 - `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
 - `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
 - `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
-- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `true`
+- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 
 #### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError`
@@ -346,6 +317,36 @@ app.post('/page', (c) => {
 - `error`: `Error`
 
 #### `BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T`
+
+### Automatic content type detection
+
+#### `Bodyguard.softPat(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+
+Returns a `BodyguardResult`:
+
+```ts
+{
+    success: boolean,
+    error?: Error,
+    value?: ReturnType<ValidatorType>,
+}
+```
+
+#### `Bodyguard.pat(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+
+Parses a request or response body into a JavaScript object. Internally uses `json()` or `form()` depending on the content type. Errors are thrown.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+
+Returns the parsed object (not a `BodyguardResult`).
 
 ### JSON parsing
 
@@ -406,6 +407,8 @@ Parses an urlencoded or multipart form data stream into a JavaScript object. Err
 - `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
+
+### Text parsing
 
 #### `Bodyguard.softText(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 

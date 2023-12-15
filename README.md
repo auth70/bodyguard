@@ -1,13 +1,8 @@
 ![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/01db31c8-fb8f-4a40-9b4b-027836c695b3)
 
 <p align="center">
-
-  <a href="https://www.npmjs.com/package/@auth70/bodyguard">
-    <img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm">
-  </a>
-  <a href="https://www.npmjs.com/package/@auth70/bodyguard">
-    <img src="https://img.shields.io/npm/types/@auth70/bodyguard" alt="npm type definitions">
-  </a>
+  <a href="https://www.npmjs.com/package/@auth70/bodyguard"><img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@auth70/bodyguard"><img src="https://img.shields.io/npm/types/@auth70/bodyguard" alt="npm type definitions"></a>
 </p>
 
 # Bodyguard

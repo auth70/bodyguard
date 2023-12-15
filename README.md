@@ -1,12 +1,18 @@
 ![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/8f2d7f26-e32c-47e0-95c9-4a88ea89cf06)
 
-<div style="text-align: center;">
+<p align="center">
+  <a href="https://github.com/auth70/bodyguard/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/auth70/bodyguard" alt="GitHub">
+  </a>
+  <a href="https://www.npmjs.com/package/@auth70/bodyguard">
+    <img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm">
+  </a>
+  <a href="https://www.npmjs.com/package/@auth70/bodyguard">
+    <img src="https://img.shields.io/npm/types/@auth70/bodyguard" alt="npm type definitions">
+  </a>
+</p>
 
-[![GitHub](https://img.shields.io/github/license/honojs/hono)](https://github.com/auth70/bodyguard/blob/main/LICENSE) [![npm](https://img.shields.io/npm/v/@auth70/bodyguard)](https://www.npmjs.com/package/@auth70/bodyguard) [![npm type definitions](https://img.shields.io/npm/types/@auth70/bodyguard)](https://www.npmjs.com/package/@auth70/bodyguard)
-
-</div>
-
-<h1 style="text-align: center">Bodyguard</h1>
+<h1 align="center">Bodyguard</h1>
 
 Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible streaming body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
 

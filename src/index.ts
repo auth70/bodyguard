@@ -1,5 +1,5 @@
 import { BodyguardValidator, ERRORS, JSONLike, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess } from "./lib.js";
-import { FormDataParser, JSONParser, URLParamsParser } from "./parser.js";
+import { FormDataParser, JSONParser, TextParser, URLParamsParser } from "./parser.js";
 
 export * from "./lib.js";
 
@@ -47,19 +47,90 @@ export class Bodyguard {
     }
 
     /**
+     * Attempts to parse a Request or Response body. Returns the parsed object in case of success and
+     * an error object in case of failure.
+     * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed body.
+     * @param {Request | Response} input - Request or Response to parse the body from.
+     * @param {T} validator - Optional validator to validate the parsed body against.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @returns {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     * @param input 
+     * @param validator 
+     * @param config 
+     * @returns 
+     */
+    async softPat<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+    > (
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardConfig>
+    ): Promise<BodyguardResult<K>> {
+        try {
+            const res = await this.pat(input, validator, config);
+            return {
+                success: true,
+                value: res as K
+            }
+        } catch(e: any) {
+            return {
+                success: false,
+                error: typeof e === 'string' ? e : e?.message || ""
+            }
+        }
+    }
+
+    /**
+     * Attempts to parse a Request or Response body. Returns the parsed object in case of success and
+     * an error object in case of failure.
+     * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed body.
+     * @param {Request | Response} input - Request or Response to parse the body from.
+     * @param {T} validator - Optional validator to validate the parsed body against.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @returns {Promise<K>} - Result of the parsing operation.
+     * @throws {Error} - If content-type is not present or is invalid, or the body is invalid, it throws an error.
+     */
+    async pat<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+    > (
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardConfig>
+    ): Promise<K> {
+        const contentType = input.headers.get("content-type");
+        if (!contentType || contentType === '') throw new Error(ERRORS.NO_CONTENT_TYPE);
+        if (contentType === "application/x-www-form-urlencoded") {
+            return await this.form(input, validator, config);
+        } else if (contentType.startsWith("multipart/form-data")) {
+            return await this.form(input, validator, config);
+        } else if (contentType === "application/json") {
+            return await this.json(input, validator, config);
+        } else if (contentType === "text/plain") {
+            return await this.text(input, validator, config);
+        } else {
+            throw new Error(ERRORS.INVALID_CONTENT_TYPE);
+        }
+    }
+
+    /**
      * Attempts to parse a form from a Request or Response. Returns the parsed object in case of success and 
      * an error object in case of failure.
      * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed form.
      * @param {Request | Response} input - Request or Response to parse the form from.
      * @param {T} validator - Optional validator to validate the parsed form against.
-     * @return {Promise<BodyguardResult<T>>} - Result of the parsing operation.
+     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
      */
     async softForm<
-        ValidatorType extends BodyguardValidator,
-        K extends JSONLike = ValidatorType extends BodyguardValidator ? ReturnType<ValidatorType> : JSONLike
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
     > (
         input: Request | Response,
-        validator?: ValidatorType,
+        validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<BodyguardResult<K>> {
         try {
@@ -79,17 +150,18 @@ export class Bodyguard {
     /**
      * Parses a form from a Request or Response. Form could be urlencoded or multipart.
      * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed form.
      * @param {Request | Response} input - Request or Response to parse the form from.
      * @param {T} validator - Optional validator to validate the parsed form against.
-     * @return {Promise<T>} - Parsed form from the Request or Response.
+     * @return {Promise<K>} - Parsed form from the Request or Response.
      * @throws {Error} - If content-type is not present or is invalid, or the form data is invalid, it throws an error.
      */
     async form<
-        ValidatorType extends BodyguardValidator,
-        K extends JSONLike = ValidatorType extends BodyguardValidator ? ReturnType<ValidatorType> : JSONLike
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
     > (
         input: Request | Response,
-        validator?: ValidatorType,
+        validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
         if(input.body === null) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
@@ -126,16 +198,18 @@ export class Bodyguard {
      * Attempts to parse JSON from a Request or Response. Returns the parsed JSON in case of success and 
      * an error object in case of failure.
      * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed JSON.
      * @param {Request | Response} input - Request or Response to parse the JSON from.
      * @param {T} validator - Optional validator to validate the parsed JSON against.
-     * @return {Promise<BodyguardResult<T>>} - Result of the parsing operation.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
      */
     async softJson<
-        ValidatorType extends BodyguardValidator,
-        K extends JSONLike = ValidatorType extends BodyguardValidator ? ReturnType<ValidatorType> : JSONLike
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
     > (
         input: Request | Response,
-        validator?: ValidatorType,
+        validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<BodyguardResult<K>> {
         try {
@@ -155,17 +229,19 @@ export class Bodyguard {
     /**
      * Parses JSON from a Request or Response.
      * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed JSON.
      * @param {Request | Response} input - Request or Response to parse the JSON from.
      * @param {T} validator - Optional validator to validate the parsed JSON against.
-     * @return {Promise<T>} - Parsed JSON from the Request or Response.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @return {Promise<K>} - Parsed JSON from the Request or Response.
      * @throws {Error} - If JSON parsing fails, it throws an error.
      */
     async json<
-        ValidatorType extends BodyguardValidator,
-        K extends JSONLike = ValidatorType extends BodyguardValidator ? ReturnType<ValidatorType> : JSONLike
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
     > (
         input: Request | Response,
-        validator?: ValidatorType,
+        validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
 
@@ -179,6 +255,66 @@ export class Bodyguard {
             return await Promise.resolve(validator(ret)) as K;
         }
 
+        return ret as K;
+    }
+
+    /**
+     * Attempts to parse text from a Request or Response. Returns the parsed text in case of success and
+     * an error object in case of failure.
+     * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed text.
+     * @param {Request | Response} input - Request or Response to parse the text from.
+     * @param {T} validator - Optional validator to validate the parsed text against.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @returns {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     */
+    async softText<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : string
+    >(
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardConfig>
+    ): Promise<BodyguardResult<K>> {
+        try {
+            const res = await this.text(input, validator, config);
+            return {
+                success: true,
+                value: res as K
+            }
+        } catch(e: any) {
+            return {
+                success: false,
+                error: typeof e === 'string' ? e : e?.message || ""
+            }
+        }
+    }
+
+    /**
+     * Parses text from a Request or Response.
+     * @template T - Type parameter for the validator to be validated against.
+     * @template K - Type parameter for the parsed text.
+     * @param {Request | Response} input - Request or Response to parse the text from.
+     * @param {T} validator - Optional validator to validate the parsed text against.
+     * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
+     * @returns {Promise<K>} - Parsed text from the Request or Response.
+     * @throws {Error} - If text parsing fails, it throws an error.
+     */
+    async text<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : string
+    >(
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardConfig>
+    ): Promise<K> {
+        if(input.body === null) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        const instanceConfig = this.constructConfig(config || {});
+        const parser = new TextParser(instanceConfig);
+        const ret = await parser.parse(input.body);
+        if(validator) {
+            return await Promise.resolve(validator(ret)) as K;
+        }
         return ret as K;
     }
 

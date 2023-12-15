@@ -9,6 +9,36 @@ export interface Parser {
     parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike>;
 }
 
+export class TextParser implements Parser {
+
+    config: BodyguardConfig;
+    depth = 0;
+    keyCount = 0;
+
+    constructor(config: BodyguardConfig) {
+        this.config = config;
+    }
+
+    async parse(stream: ReadableStream<Uint8Array>): Promise<JSONLike> {
+        return new Promise(async (resolve, reject) => {
+
+            const decoder = new TextDecoder();
+            let result = '';
+            const byteStreamCounter = createByteStreamCounter(stream, this.config.maxSize, reject);
+            const reader = stream.pipeThrough(byteStreamCounter).getReader();
+
+            while(true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                result += decoder.decode(value);
+            }
+
+            resolve(result);
+
+        });
+    }
+}
+
 export class JSONParser implements Parser {
 
     config: BodyguardConfig;

@@ -36,11 +36,13 @@ test('it passes nested multipart form with arrays (softForm with multipart)', as
 
     const [req, boundary] = createMultipartRequest(reqData);
 
-    const result = await bodyguard.softForm(req);
+    const result = await bodyguard.softForm(req, undefined, {
+        castNumbers: true,
+    });
 
     assert.equal(result.success, true);
     
-    if(result.success) {
+    if(result.success && result.value) {
         assert.equal(result.value.a, reqData.a);
         assert.equal(result.value.b, reqData.b);
         assert.equal(result.value.blbl, reqData.blbl);

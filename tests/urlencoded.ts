@@ -16,7 +16,9 @@ test('it passes complex input (softForm with urlencoded)', async () => {
         body: "a=1&b=2&&c.d=3&e=foo&f.g=4&f.bgfd=5&f.h[]=foo%20bar&c.e=bb"
     });
 
-    const result = await bodyguard.softForm(req);
+    const result = await bodyguard.softForm(req, undefined, {
+        castNumbers: true,
+    });
 
     assert.equal(result.success, true);
 

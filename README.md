@@ -1,31 +1,51 @@
-# @auth70/bodyguard
+![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/8f2d7f26-e32c-47e0-95c9-4a88ea89cf06)
+
+<div style="text-align: center;">
+
+[![GitHub](https://img.shields.io/github/license/honojs/hono)](https://github.com/auth70/bodyguard/blob/main/LICENSE) [![npm](https://img.shields.io/npm/v/@auth70/bodyguard)](https://www.npmjs.com/package/@auth70/bodyguard) [![npm type definitions](https://img.shields.io/npm/types/@auth70/bodyguard)](https://www.npmjs.com/package/@auth70/bodyguard)
+
+</div>
+
+<h1 style="text-align: center">Bodyguard</h1>
+
+Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible streaming body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
+
+It takes in a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) or [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object and parses its body into a JavaScript object. If you pass a typed schema validator using [Zod](https://zod.dev/) or similar library, the resulting object will also be typed.
+
+## Quickstart
 
 ```bash
 npm install --save @auth70/bodyguard
 ```
 
-## Description
+## Features
 
-Opinionated Fetch API compatible streaming body parser and guard with no Node.js specific dependencies.
+- **Parse (nested!) object *and* array form data with dot (`foo.bar`) and square bracket `(baz[0])` syntax** in both multipart and URL-encoded forms.
+- **Prevents resource exhaustion** by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
+- **Guards against [prototype pollution](https://cheatsheetseries.owasp.org/cheatsheets/Prototype_Pollution_Prevention_Cheat_Sheet.html)** in JSON and form data.
+- **Enforce parsed data to pass a validator** using [Zod](https://zod.dev/) or similar library *(optional)*.
+- **Cast numbers and booleans from strings in form data** *(optional)*.
 
-### Features
+### Supported content types
 
-- Simple, 100% test covered, ESM-only API that's hard to mess up written in TypeScript.
-- Supports only UTF-8 and the most common content types for JSON and form parsing.
-- Automatically parses JSON and form data streams into JavaScript objects.
-- Prevents resource exhaustion by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
-- Allows nested object and array form data with dot and square bracket syntax in both multipart and URL-encoded forms.
-- Allows nested (multi-boundary) multipart form data.
-- *Optional:* Enforce parsed data to pass a user-chosen validator (e.g. Zod) - this gives you types on the result object.
-- *Optional:* Cast numbers and booleans from strings in form data.
+- ✅ JSON (`application/json`)
+- ✅ Multi-boundary multipart form data (`multipart/form-data`)
+- ✅ URL-encoded form data (`application/x-www-form-urlencoded`)
+- ✅ Raw UTF-8 text (`text/plain`)
 
-### TODO
+#### TODO
 
 - File uploads in multipart form data.
 
 ## Usage
 
-Initialise a Bodyguard instance with your preferred options and use it as a singleton.
+**Each method in Bodyguard has two versions.** One that throws an error if the body is invalid (e.g. `pat()`), and one that returns an error instead (e.g. `softPat()`). You may pick whichever suits your workflow.
+
+**If you pass in a validator, it *has* to throw an error if the data is invalid.** If the data is valid, it should return the parsed data. If you don't pass in a validator, the parsed data is returned as-is.
+
+### Getting started
+
+Initialise a Bodyguard instance with your preferred options. You can use it as a singleton or create multiple instances.
 
 ```ts
 import { Bodyguard } from '@auth70/bodyguard';
@@ -41,55 +61,131 @@ const bodyguard = new Bodyguard({
 });
 ```
 
-Then in a route, use:
+### Parsing
 
-- `json(request, validator, options)`/`form(request, validator, options)` (throws an error), or
-- `softJson(request, validator, options)`/`softForm(request, validator, options)` (returns an error)
+To parse a request body, you can either use the `pat()` / `softPat()` methods to have Bodyguard use the appropriate parser depending on the content type, or you can directly use the `json()` / `softJson()` or `form()` / `softForm()` methods to parse JSON and form data respectively.
 
-to parse the request body into a JavaScript object. `options` are the same options you can pass to the constructor, including `validator`. Any options will override the constructor options.
+For example, in a SvelteKit action:
 
 ```ts
-const routeOptions = {
-    maxKeys: 1000
-}
-const { success, value, error } = await bodyguard.softForm(request, validator, routeOptions);
+// src/routes/+page.server.ts
+import { z } from 'zod';
+
+// Define a validator, using Zod in this example
+const RouteSchema = z.object({ name: z.string() }); 
+
+export const actions = {
+    default: async ({ request, locals }) => {
+        const { success, value } = await locals.bodyguard.softForm(
+            request, // Pass in the request
+            RouteSchema.parse // Pass in the validator
+        );
+        /**
+         * success: boolean
+         * error?: Error
+         * value?: { name: string } <-- typed!
+         */
+        if(!success) {
+            return {
+                status: 400,
+                body: JSON.stringify({ error: error.message }),
+            }
+        }
+        return {
+            status: 302,
+            headers: {
+                location: `/${value.name}`,
+            },
+        }
+    },
+} satisfies Actions;
 ```
+
+`options` are the same options you can pass to the instance constructor. Any options provided to a function will override the constructor options.
 
 See [the API section](#api) for more information.
 
-### Response body parsing
+#### Response parsing
 
 Even though these examples focus on Request bodies, there is nothing stopping you from using Bodyguard to parse and guard Response bodies as well, e.g. from user-supplied, untrusted APIs or webhooks.
 
-### Supported content types
+### Parsing rules
 
-#### application/json
+#### JSON
 
-`JSON.parse()` compatible parsing using [@streamparser/json](https://github.com/juanjoDiaz/streamparser-json).
+JSON data is returned like `JSON.parse()` would return it.
 
-#### multipart/form-data
+#### Form data
 
-Using [@exact-realty/multipart-parser](https://github.com/Exact-Realty/ts-multipart-parser).
+##### Multipart forms
 
-Form data is automatically mapped into a JavaScript object, with support for:
+Trailing newlines are stripped from the end of values.
 
-- Strings and numbers
-- Optionally casted booleans
-- Nested objects using dot notation syntax
-- Nested arrays using square bracket syntax, with support for both numeric and auto-incrementing indexes
+##### URL-encoded forms
 
-See [Parsing rules](#parsing-rules) for more information.
+Values are decoded using `decodeURIComponent()`
 
-#### application/x-www-form-urlencoded
+##### Numbers
 
-Using an internal streaming parser.
+*Auto-cast numbers by passing `castNumbers: true` as an option.*
 
-URL-encoded form data is automatically mapped into a JavaScript object, with support for:
+If the value passes `!isNaN()` it's cast as a number. For example, `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc. *This is disabled by default*.
 
-- Strings and numbers
-- Optionally casted booleans
-- Nested objects using dot notation syntax
-- Nested arrays using square bracket syntax, with support for both numeric and auto-incrementing indexes
+##### Booleans
+
+*Auto-cast booleans by passing `castBooleans: true` as an option.*
+
+If the value is `"true"` or `"false"`, it's cast as a boolean. For example, `"true"` is returned as `true`, `"false"` is returned as `false`. *This is disabled by default*.
+
+##### Empty strings
+
+Empty strings are returned as empty strings (`""`), not `null` or `undefined`.
+
+##### Array indices with gaps
+
+Array indices with gaps are returned as sparse arrays. For example, `foo[1] = "3"` is returned as `foo: [undefined, 3]`.
+
+##### Object and array form data
+
+To parse objects from form data, use dot notation in the input name accessor. For arrays, use square brackets.
+
+```html
+<form>
+    <input type="text" name="a_string" value="bar" />
+    <input type="text" name="a_number" value="3" />
+    <!-- array accessors -->
+    <input type="text" name="an_array[]" value="foo" /> <!-- auto-incrementing index -->
+    <input type="text" name="an_array[1]" value="bar" /> <!-- numeric index -->
+    <!-- object accessors -->
+    <input type="text" name="an_object.fox" value="fox" />
+    <!-- nested object accessor -->
+    <input type="text" name="an_object.dog.bark" value="bark" />
+    <!-- nested object and array accessor -->
+    <input type="text" name="an_object.cat[].meow" value="meow?" />
+    <input type="text" name="an_object.cat[2].meow" value="meow!" /> <!-- leaves index 1 undefined -->
+</form>
+```
+
+The above comes out as:
+
+```ts
+{
+    a_string: 'bar',
+    a_number: 3,
+    an_array: ['foo', 'bar'],
+    an_object: {
+        fox: 'fox',
+        dog: {
+            bark: 'bark',
+        },
+        cat: [
+            { meow: 'meow?' },
+            undefined,
+            { meow: 'meow!' },
+        ],
+    },
+}
+```
 
 ## Examples
 
@@ -211,82 +307,6 @@ app.post('/page', (c) => {
 
 </details>
 
-### Next.js example
-
-<details id="hono-example">
-<summary><strong>Expand example</strong></summary>
-TODO (PR welcome)
-</details>
-
-## Parsing rules
-
-### JSON
-
-JSON data is returned like `JSON.parse()` would return it.
-
-### Form data
-
-- Trailing newline is stripped from the end of the value for multipart form data.
-- URL encoded values are decoded using `decodeURIComponent()`.
-
-#### Numbers
-
-*Numbers are cast automatically by default!* If the value passes `!isNaN()` it's cast as a number. i.e. `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc.
-
-#### Booleans
-
-*Booleans are NOT cast automatically by default!* If the value is `"true"` or `"false"`, it's **not** cast as a boolean but returned as a string unless you specify `castBooleans` as `true` in parser configuration. This is to prevent accidental casting of values that are not intended to be booleans.
-
-#### Empty strings
-
-Empty strings are returned as `""`.
-
-#### Array indices with gaps
-
-Array indices with gaps are returned as sparse arrays. i.e. `foo[1] = "3"` is returned as `foo: [undefined, 3]`.
-
-#### Object and array form data
-
-To parse objects from form data, use dot notation in the input name accessor. For arrays, use square brackets.
-
-```html
-<form>
-    <input type="text" name="a_string" value="bar" />
-    <input type="text" name="a_number" value="3" />
-    <!-- array accessors -->
-    <input type="text" name="an_array[]" value="foo" /> <!-- auto-incrementing index -->
-    <input type="text" name="an_array[1]" value="bar" /> <!-- numeric index -->
-    <!-- object accessors -->
-    <input type="text" name="an_object.fox" value="fox" />
-    <!-- nested object accessor -->
-    <input type="text" name="an_object.dog.bark" value="bark" />
-    <!-- nested object and array accessor -->
-    <input type="text" name="an_object.cat[].meow" value="meow?" />
-    <input type="text" name="an_object.cat[2].meow" value="meow!" /> <!-- leaves index 1 undefined -->
-</form>
-```
-
-Comes out as:
-
-```ts
-{
-    a_string: 'bar',
-    a_number: 3,
-    an_array: ['foo', 'bar'],
-    an_object: {
-        fox: 'fox',
-        dog: {
-            bark: 'bark',
-        },
-        cat: [
-            { meow: 'meow?' },
-            undefined,
-            { meow: 'meow!' },
-        ],
-    },
-}
-```
-
 ## API
 
 ### Constructor
@@ -383,6 +403,22 @@ Parses an urlencoded or multipart form data stream into a JavaScript object. Err
 - `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
+
+#### `Bodyguard.softText(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. If an error occurs, it is returned instead of throwing.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+
+#### `Bodyguard.text(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+
+Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. Errors are thrown.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
+- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
 
 ## Contributing
 

@@ -1,4 +1,4 @@
-![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/e4fdab2d-a583-4fb8-9f75-2984ef320de1)
+![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/01db31c8-fb8f-4a40-9b4b-027836c695b3)
 
 <p align="center">
 

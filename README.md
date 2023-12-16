@@ -75,7 +75,7 @@ const RouteSchema = z.object({ name: z.string() });
 
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await locals.bodyguard.softForm(
+        const { success, error, value } = await locals.bodyguard.softForm(
             request, // Pass in the request
             RouteSchema.parse // Pass in the validator
         );

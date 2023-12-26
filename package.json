@@ -33,7 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@exact-realty/multipart-parser": "^1.0.10",
-    "@streamparser/json": "^0.0.18"
+    "@streamparser/json": "^0.0.19"
   },
   "devDependencies": {
     "c8": "^8.0.1",

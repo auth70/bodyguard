@@ -67,23 +67,27 @@ To parse a request body, you can either use the `pat()` / `softPat()` methods to
 For example, in a SvelteKit action:
 
 ```ts
-// src/routes/+page.server.ts
+// src/routes/+page.server.tsts
+import { Bodyguard } from '@auth70/bodyguard';
 import { z } from 'zod';
 
 // Define a validator, using Zod in this example
 const RouteSchema = z.object({ name: z.string() }); 
 
+const bodyguard = new Bodyguard(); // Or use a singleton, or put it in locals
+
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await locals.bodyguard.softForm(
+        // Use softForm() to parse the form into an object.
+        // It does not throw an error if the body is invalid (compared to form() which does).
+        const { success, value } = await bodyguard.softForm(
             request, // Pass in the request
             RouteSchema.parse // Pass in the validator
         );
-        /**
-         * success: boolean
-         * error?: Error
-         * value?: { name: string } <-- typed!
-         */
+         // The output is now typed based on the validator!
+         // success: boolean
+         // error?: Error
+         // value?: { name: string } <-- typed!
         if(!success) {
             return {
                 status: 400,

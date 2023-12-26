@@ -1,6 +1,6 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
 import { ERRORS, type BodyguardConfig, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast, type JSONLike, type State } from './lib.js';
-import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
+import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser/dist/index.js';
 
 export interface Parser {
     config: BodyguardConfig;
@@ -74,7 +74,7 @@ export class JSONParser implements Parser {
                 if(key === '__proto__') reject(new Error(ERRORS.INVALID_INPUT));
                 if(key && typeof key === "string" && key.length > this.config.maxKeyLength) reject(new Error(ERRORS.KEY_TOO_LONG));
                 if (stack.length > 0) return;
-                resolve(value);
+                resolve(value as JSONLike);
             };
 
             jsonparser.onError = (error) => {

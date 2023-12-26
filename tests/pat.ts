@@ -101,8 +101,6 @@ test('it auto negotiates content (softPat with multipart form)', async () => {
 
     const result = await bodyguard.softPat(req);
 
-    console.log(result);
-
     assert.equal(result.success, true);
 
     if(result.success) {

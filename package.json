@@ -10,7 +10,7 @@
   "type": "module",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "tsc",
     "watch": "tsc -w",
     "test": "tsm node_modules/uvu/bin.js tests",
     "test:coverage": "c8 --include=src npm test",

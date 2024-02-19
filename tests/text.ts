@@ -93,7 +93,7 @@ test('it fails with a validator (softText)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.INVALID_INPUT);
+        assert.equal(result.error.message, (ERRORS.INVALID_INPUT));
     }
     
 });

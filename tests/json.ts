@@ -21,7 +21,7 @@ test('it throws on prototype pollution (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.INVALID_INPUT);
+        assert.equal(result.error.message, (ERRORS.INVALID_INPUT));
     }
 
 });
@@ -42,7 +42,7 @@ test('it fails with no body (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.BODY_NOT_AVAILABLE);
+        assert.equal(result.error.message, (ERRORS.BODY_NOT_AVAILABLE));
     }
 
 });
@@ -168,7 +168,7 @@ test('it fails on too many input bytes (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.MAX_SIZE_EXCEEDED);
+        assert.equal(result.error.message, (ERRORS.MAX_SIZE_EXCEEDED));
     }
 
 });
@@ -191,7 +191,7 @@ test('it fails on invalid json (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.INVALID_INPUT);
+        assert.equal(result.error.message, (ERRORS.INVALID_INPUT));
     }
 
 });
@@ -215,7 +215,7 @@ test('it fails on too long key (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.KEY_TOO_LONG);
+        assert.equal(result.error.message, (ERRORS.KEY_TOO_LONG));
     }
 
 });
@@ -261,7 +261,7 @@ test('it fails on too many input keys (softJson)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.TOO_MANY_KEYS);
+        assert.equal(result.error.message, (ERRORS.TOO_MANY_KEYS));
     }
 
 });
@@ -293,7 +293,7 @@ test('it fails on too deep input (JSON)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.TOO_DEEP);
+        assert.equal(result.error.message, (ERRORS.TOO_DEEP));
     }
 
 });

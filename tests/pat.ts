@@ -111,4 +111,62 @@ test('it auto negotiates content (softPat with multipart form)', async () => {
 
 });
 
+test('it throws on invalid content type (softPat)', async () => {
+    
+    const bodyguard = new Bodyguard();
+
+    const req = new Request("http://localhost", {
+        method: "POST",
+        headers: {
+            "content-type": "application/xml"
+        },
+        body: "<a>1</a>"
+    });
+
+    const result = await bodyguard.softPat(req);
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, ERRORS.INVALID_CONTENT_TYPE);
+
+});
+
+test('it throws on no content type (softPat)', async () => {
+    
+    const bodyguard = new Bodyguard();
+
+    const req = new Request("http://localhost", {
+        method: "POST",
+        body: "<a>1</a>",
+        headers: {
+            "content-type": ""
+        }
+    });
+
+    const result = await bodyguard.softPat(req);
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, ERRORS.NO_CONTENT_TYPE);
+
+});
+
+test('it throws on no content type (pat)', async () => {
+        
+    const bodyguard = new Bodyguard();
+
+    const req = new Request("http://localhost", {
+        method: "POST",
+        body: "<a>1</a>",
+        headers: {
+            "content-type": ""
+        }
+    });
+
+    try {
+        const result = await bodyguard.pat(req);
+    } catch(err) {
+        assert.equal(err.message, ERRORS.NO_CONTENT_TYPE);
+    }
+
+});
+
 test.run();

@@ -3,39 +3,6 @@ export const MAX_DEPTH = 10;
 export const MAX_SIZE = 1024 * 1024;
 export const MAX_KEY_LENGTH = 100;
 
-export type State = 'START' | 'KEY' | 'VALUE';
-
-export type BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T;
-
-export type BodyguardConfig = {
-    maxKeys: number;
-    maxDepth: number;
-    maxSize: number;
-    maxKeyLength: number;
-    castNumbers: boolean;
-    castBooleans: boolean;
-}
-
-export type BodyguardError = {
-    success: false;
-    error: string;
-};
-
-export type BodyguardSuccess<T = JSONLike> = {
-    success: true;
-    value: T;
-};
-
-export type JSONLike =
-    | { [property: string]: JSONLike }
-    | readonly JSONLike[]
-    | string
-    | number
-    | boolean
-    | null;
-
-export type BodyguardResult<SuccessType = JSONLike> = BodyguardSuccess<SuccessType> | BodyguardError;
-
 export const CONTENT_TYPES = [
     "application/json",
     "application/x-www-form-urlencoded",
@@ -55,6 +22,66 @@ export const ERRORS = {
     KEY_TOO_LONG: "KEY_TOO_LONG",
 };
 
+/**
+ * Types
+ */
+
+export type State = 'START' | 'KEY' | 'VALUE';
+
+export type BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T;
+
+export interface BodyguardConfig {
+    /** The maximum number of keys */
+    maxKeys: number;
+    /** The maximum depth of the object */
+    maxDepth: number;
+    /** The maximum size of the input in bytes */
+    maxSize: number;
+    /** The maximum length of a key */
+    maxKeyLength: number;
+    /** Automatically cast numbers from strings */
+    castNumbers: boolean;
+    /** Automatically cast booleans from strings */
+    castBooleans: boolean;
+}
+
+export interface BodyguardFormConfig extends BodyguardConfig {
+    /** Convert plus signs to spaces in urlencoded data */
+    convertPluses: boolean;
+}
+
+export type BodyguardError = {
+    success: false;
+    /** The error message */
+    error: unknown;
+};
+
+export type BodyguardSuccess<T = JSONLike> = {
+    success: true;
+    value: T;
+};
+
+export type JSONLike =
+    | { [property: string]: JSONLike }
+    | readonly JSONLike[]
+    | string
+    | number
+    | boolean
+    | null;
+
+export type BodyguardResult<SuccessType = JSONLike> = BodyguardSuccess<SuccessType> | BodyguardError;
+
+/*
+ * Utility functions
+ */  
+
+/**
+ * Create a byte stream counter. This is a transform stream that counts the number of bytes. If the number of bytes exceeds the maxSize, it will throw an error.
+ * @param {ReadableStream<Uint8Array>} stream - The input stream
+ * @param {number} maxSize - The maximum number of bytes
+ * @param {(reason?: any) => void} reject - A reject function to call when the max size is exceeded
+ * @returns {TransformStream<Uint8Array>} - The transform stream
+ */
 export function createByteStreamCounter(stream: ReadableStream<Uint8Array>, maxSize: number, reject?: (reason?: any) => void) {
     let bytes = 0;
     return new TransformStream<Uint8Array>({
@@ -69,15 +96,29 @@ export function createByteStreamCounter(stream: ReadableStream<Uint8Array>, maxS
     });
 }
 
-export function possibleCast(value: string, config: BodyguardConfig) {
+/**
+ * Possible cast a value to a number or boolean if it matches the criteria.
+ * Also converts plus signs to spaces if convertPluses is true.
+ * @param {string} value - The value to cast
+ * @param {BodyguardConfig | BodyguardFormConfig} config - The configuration
+ * @returns {string | number | boolean} - The casted value
+ */
+export function possibleCast(value: string, config: BodyguardConfig | BodyguardFormConfig) {
     value = value.replace(/[\r\n]+$/, '');
     if(value.trim() === '') return value;
     if(!isNaN(Number(value)) && config.castNumbers) return Number(value);
     if(value === 'true' && config.castBooleans) return true;
     if(value === 'false' && config.castBooleans) return false;
+    if((config as BodyguardFormConfig).convertPluses) return value.replace(/\+/g, ' ');
     return value;
 }
 
+/**
+ * Assign a nested value to an object
+ * @param {Record<string, any>} obj - The object to assign to
+ * @param {string[]} path - The path to assign to
+ * @param {any} value - The value to assign
+ */
 export function assignNestedValue(obj: Record<string, any>, path: string[], value: any) {
     let current = obj;
     for (let i = 0; i < path.length; i++) {
@@ -133,6 +174,11 @@ export function assignNestedValue(obj: Record<string, any>, path: string[], valu
     }
 }
 
+/**
+ * Extract a nested key into an array of segments
+ * @param {string} keyName - The key name
+ * @returns {string[]} - The segments
+ */
 export function extractNestedKey(keyName: string) {
     const path: string[] = [];
     let buffer = '';

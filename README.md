@@ -7,7 +7,7 @@
 
 # Bodyguard
 
-Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible streaming body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
+Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible, **streaming** body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
 
 Takes in a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) or [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object and parses its body into a JavaScript object. If you pass a typed schema validator using [Zod](https://zod.dev/) or similar library, the resulting object will also be typed.
 
@@ -68,6 +68,7 @@ For example, in a SvelteKit action:
 
 ```ts
 // src/routes/+page.server.tsts
+import { fail, type Actions } from '@sveltejs/kit';
 import { Bodyguard } from '@auth70/bodyguard';
 import { z } from 'zod';
 
@@ -80,26 +81,17 @@ export const actions = {
     default: async ({ request, locals }) => {
         // Use softForm() to parse the form into an object.
         // It does not throw an error if the body is invalid (compared to form() which does).
-        const { success, error, value } = await bodyguard.softForm(
+        const result = await bodyguard.softForm(
             request, // Pass in the request
             RouteSchema.parse // Pass in the validator
         );
-         // The output is now typed based on the validator!
-         // success: boolean
-         // error?: Error
-         // value?: { name: string } <-- typed!
-        if(!success) {
-            return {
-                status: 400,
-                body: JSON.stringify({ error: error.message }),
-            }
+
+        if(!result.success) {
+            // Narrow the type of result to BodyguardError
+            return fail(400, { error: result.error });
         }
-        return {
-            status: 302,
-            headers: {
-                location: `/${value.name}`,
-            },
-        }
+        // Narrow the type of result to BodyguardSuccess
+        return { name: result.value.name };
     },
 } satisfies Actions;
 ```
@@ -126,7 +118,7 @@ Trailing newlines are stripped from the end of values.
 
 #### URL-encoded forms
 
-Values are decoded using `decodeURIComponent()`
+Values are decoded using `decodeURIComponent()`.
 
 #### Numbers
 
@@ -189,6 +181,12 @@ The above comes out as:
     },
 }
 ```
+
+#### Handling plus (+) signs url-encoded forms
+
+If you are submitting a javascript-free form, you may want to convert `+` to spaces in the form data, as browsers regularly transform spaces into pluses when submitting urlencoded forms. Javascript submitted forms don't have this problem.
+
+You can do this automatically by passing `convertPluses: true` as an option to `form()` or `softForm()`. It won't affect multipart form data, so consider using `enctype="application/x-www-form-urlencoded"` in your form tag if you need proper spaces and plus signs. Note that this is disabled by default, and if you enable it, you won't be able to distinguish between spaces and pluses in the form data.
 
 ## Examples
 
@@ -300,6 +298,16 @@ app.post('/page', (c) => {
 - `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 
+#### `BodyguardFormConfig` (extends `BodyguardConfig`, used in `form()` and `softForm()`)
+
+- `maxSize` (optional): `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
+- `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
+- `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
+- `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
+- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `false`
+- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
+- `convertPluses` (optional): `boolean` - Whether to convert `+` to spaces in urlencoded form data. Default: `false`
+
 #### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError`
 
 - `success`: `boolean` - Whether the parsing was successful.
@@ -320,13 +328,13 @@ app.post('/page', (c) => {
 
 ### Automatic content type detection
 
-#### `Bodyguard.softPat(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softPat(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 Returns a `BodyguardResult`:
 
@@ -338,25 +346,25 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.pat(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.pat(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
 
 Parses a request or response body into a JavaScript object. Internally uses `json()` or `form()` depending on the content type. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
 
 ### JSON parsing
 
-#### `Bodyguard.softJson(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softJson(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses a JSON stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 Returns a `BodyguardResult`:
 
@@ -368,25 +376,25 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.json(input: Request | Response, validator?: ValidatorType, config?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.json(input: Request | Response, validator?: ValidatorType, config?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
 
 Parses a JSON stream into a JavaScript object. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
 
 ### Form parsing
 
-#### `Bodyguard.softForm(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softForm(input: Request | Response, validator?: ValidatorType, options?: BodyguardFormConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
 - `request`: `Request` - The request to parse.
 - `validator` (optional): `ValidatorType extends BodyguardValidator` - A validator to validate the parsed object against. Default: `undefined`
-- `options` (optional): `BodyguardOptions` - Options to override the constructor options. Default: `undefined`
+- `options` (optional): `BodyguardConfig` - Options to override the constructor options. Default: `undefined`
 
 Returns a `BodyguardResult`:
 
@@ -398,33 +406,33 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.form(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.form(input: Request | Response, validator?: ValidatorType, options?: BodyguardFormConfig): Promise<ReturnType<ValidatorType>>`
 
 Parses an urlencoded or multipart form data stream into a JavaScript object. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
 
 ### Text parsing
 
-#### `Bodyguard.softText(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softText(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. If an error occurs, it is returned instead of throwing.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
-#### `Bodyguard.text(input: Request | Response, validator?: ValidatorType, options?: BodyguardOptions): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.text(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
 
 Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
-- `config?: Partial<BodyguardOptions>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
 
 ## Contributing
 

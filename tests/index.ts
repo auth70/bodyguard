@@ -21,12 +21,12 @@ test('it fails with no content type (softForm)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.NO_CONTENT_TYPE);
+        assert.equal(result.error.message, (ERRORS.NO_CONTENT_TYPE));
     }
 
 });
 
-test('it fails with no body validator (softForm)', async () => {
+test('it fails with no body (softForm)', async () => {
 
     const bodyguard = new Bodyguard();
 
@@ -42,7 +42,26 @@ test('it fails with no body validator (softForm)', async () => {
     assert.equal(result.success, false);
 
     if(!result.success) {
-        assert.equal(result.error, ERRORS.BODY_NOT_AVAILABLE);
+        assert.equal(result.error.message, (ERRORS.BODY_NOT_AVAILABLE));
+    }
+
+});
+
+test('it fails with no body (text)', async () => {
+    
+    const bodyguard = new Bodyguard();
+
+    const req = new Request("http://localhost", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json"
+        },
+    });
+
+    try {
+        const result = await bodyguard.text(req);
+    } catch(err) {
+        assert.equal(err.message, (ERRORS.BODY_NOT_AVAILABLE));
     }
 
 });

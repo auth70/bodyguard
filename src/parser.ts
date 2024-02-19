@@ -1,6 +1,7 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
-import { ERRORS, type BodyguardConfig, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast, type JSONLike, type State } from './lib.js';
-import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser/dist/index.js';
+import { ERRORS, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast } from './lib.js';
+import type { BodyguardConfig, JSONLike, State } from './lib.js';
+import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
 
 export interface Parser {
     config: BodyguardConfig;

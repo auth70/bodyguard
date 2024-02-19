@@ -1,7 +1,9 @@
-import { BodyguardValidator, ERRORS, JSONLike, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess } from "./lib.js";
+import type { BodyguardValidator, JSONLike, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardFormConfig } from "./lib.js";
+import { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE } from "./lib.js";
 import { FormDataParser, JSONParser, TextParser, URLParamsParser } from "./parser.js";
 
-export * from "./lib.js";
+export type { BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardValidator, JSONLike };
+export { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, FormDataParser, JSONParser, TextParser, URLParamsParser};
 
 export class Bodyguard {
 
@@ -49,8 +51,6 @@ export class Bodyguard {
     /**
      * Attempts to parse a Request or Response body. Returns the parsed object in case of success and
      * an error object in case of failure.
-     * @template T - Type parameter for the validator to be validated against.
-     * @template K - Type parameter for the parsed body.
      * @param {Request | Response} input - Request or Response to parse the body from.
      * @param {T} validator - Optional validator to validate the parsed body against.
      * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
@@ -62,7 +62,7 @@ export class Bodyguard {
      */
     async softPat<
         T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike,
     > (
         input: Request | Response,
         validator?: T,
@@ -77,7 +77,7 @@ export class Bodyguard {
         } catch(e: any) {
             return {
                 success: false,
-                error: typeof e === 'string' ? e : e?.message || ""
+                error: e
             }
         }
     }
@@ -85,8 +85,6 @@ export class Bodyguard {
     /**
      * Attempts to parse a Request or Response body. Returns the parsed object in case of success and
      * an error object in case of failure.
-     * @template T - Type parameter for the validator to be validated against.
-     * @template K - Type parameter for the parsed body.
      * @param {Request | Response} input - Request or Response to parse the body from.
      * @param {T} validator - Optional validator to validate the parsed body against.
      * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
@@ -119,8 +117,6 @@ export class Bodyguard {
     /**
      * Attempts to parse a form from a Request or Response. Returns the parsed object in case of success and 
      * an error object in case of failure.
-     * @template T - Type parameter for the validator to be validated against.
-     * @template K - Type parameter for the parsed form.
      * @param {Request | Response} input - Request or Response to parse the form from.
      * @param {T} validator - Optional validator to validate the parsed form against.
      * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
@@ -131,7 +127,7 @@ export class Bodyguard {
     > (
         input: Request | Response,
         validator?: T,
-        config?: Partial<BodyguardConfig>
+        config?: Partial<BodyguardFormConfig>
     ): Promise<BodyguardResult<K>> {
         try {
             const res = await this.form(input, validator, config);
@@ -142,7 +138,7 @@ export class Bodyguard {
         } catch(e: any) {
             return {
                 success: false,
-                error: typeof e === 'string' ? e : e?.message || ""
+                error: e
             }
         }
     }
@@ -162,9 +158,9 @@ export class Bodyguard {
     > (
         input: Request | Response,
         validator?: T,
-        config?: Partial<BodyguardConfig>
+        config?: Partial<BodyguardFormConfig>
     ): Promise<K> {
-        if(input.body === null) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
         const instanceConfig = this.constructConfig(config || {});
 
         const contentType = input.headers.get("content-type");
@@ -197,8 +193,6 @@ export class Bodyguard {
     /**
      * Attempts to parse JSON from a Request or Response. Returns the parsed JSON in case of success and 
      * an error object in case of failure.
-     * @template T - Type parameter for the validator to be validated against.
-     * @template K - Type parameter for the parsed JSON.
      * @param {Request | Response} input - Request or Response to parse the JSON from.
      * @param {T} validator - Optional validator to validate the parsed JSON against.
      * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
@@ -206,7 +200,7 @@ export class Bodyguard {
      */
     async softJson<
         T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike,
     > (
         input: Request | Response,
         validator?: T,
@@ -221,7 +215,7 @@ export class Bodyguard {
         } catch(e: any) {
             return {
                 success: false,
-                error: typeof e === 'string' ? e : e?.message || ""
+                error: e
             }
         }
     }
@@ -245,7 +239,7 @@ export class Bodyguard {
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
 
-        if(input.body === null) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
         const instanceConfig = this.constructConfig(config || {});
 
         const parser = new JSONParser(instanceConfig);
@@ -270,7 +264,7 @@ export class Bodyguard {
      */
     async softText<
         T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : string
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : string,
     >(
         input: Request | Response,
         validator?: T,
@@ -285,7 +279,7 @@ export class Bodyguard {
         } catch(e: any) {
             return {
                 success: false,
-                error: typeof e === 'string' ? e : e?.message || ""
+                error: e
             }
         }
     }
@@ -308,7 +302,7 @@ export class Bodyguard {
         validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
-        if(input.body === null) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
         const instanceConfig = this.constructConfig(config || {});
         const parser = new TextParser(instanceConfig);
         const ret = await parser.parse(input.body);
@@ -318,7 +312,7 @@ export class Bodyguard {
         return ret as K;
     }
 
-    private constructConfig(config?: Partial<BodyguardConfig>): BodyguardConfig {
+    private constructConfig(config?: Partial<BodyguardConfig | BodyguardFormConfig>): BodyguardConfig | BodyguardFormConfig {
         return {
             maxKeys: config?.maxKeys && typeof config.maxKeys === 'number' && config.maxKeys > 0 ? config.maxKeys : this.config.maxKeys,
             maxDepth: config?.maxDepth && typeof config.maxDepth === 'number' && config.maxDepth > 0 ? config.maxDepth : this.config.maxDepth,
@@ -326,6 +320,7 @@ export class Bodyguard {
             maxKeyLength: config?.maxKeyLength && typeof config.maxKeyLength === 'number' && config.maxKeyLength > 0 ? config.maxKeyLength : this.config.maxKeyLength,
             castBooleans: config?.castBooleans !== undefined && typeof config.castBooleans === 'boolean' ? config.castBooleans : this.config.castBooleans,
             castNumbers: config?.castNumbers !== undefined && typeof config.castNumbers === 'boolean' ? config.castNumbers : this.config.castNumbers,
+            convertPluses: (config as Partial<BodyguardFormConfig>)?.convertPluses !== undefined && typeof (config as Partial<BodyguardFormConfig>).convertPluses === 'boolean' ? (config as Partial<BodyguardFormConfig>).convertPluses : false,
         };
     }
 

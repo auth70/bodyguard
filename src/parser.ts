@@ -1,6 +1,6 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
 import { ERRORS, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast } from './lib.js';
-import type { BodyguardConfig, JSONLike, State } from './lib.js';
+import type { BodyguardConfig, BodyguardFormConfig, JSONLike, State } from './lib.js';
 import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
 
 export interface Parser {
@@ -182,13 +182,14 @@ export class URLParamsParser implements Parser {
 
 export class FormDataParser implements Parser {
 
-    config: BodyguardConfig;
+    config: BodyguardFormConfig;
     depth = 0;
     keyCount = 0;
+    fileCount = 0;
 
     private boundary = '';
 
-    constructor(config: BodyguardConfig, boundary: string) {
+    constructor(config: BodyguardFormConfig, boundary: string) {
         this.config = config;
         this.boundary = boundary;
     }
@@ -214,13 +215,32 @@ export class FormDataParser implements Parser {
                 const key = part.headers.get('content-disposition');
                 if(!key || !key.startsWith('form-data')) continue;
 
+                const contentType = part.headers.get('content-type') || 'text/plain';
+
+                // Check if content type is allowed
+                if(this.config.allowedContentTypes && !this.config.allowedContentTypes.includes(contentType)) throw new Error(ERRORS.INVALID_CONTENT_TYPE);
+
                 this.keyCount++;
                 if(this.keyCount >= this.config.maxKeys) throw new Error(ERRORS.TOO_MANY_KEYS);
 
-                const match = key.match(/name="(.*)"/);
+                // Check if the part is a file
+                const isFile = key.indexOf('; filename=') !== -1;
+
+                // Check if the file count is exceeded
+                if(isFile) this.fileCount++;
+                if(this.fileCount >= this.config.maxFiles) throw new Error(ERRORS.TOO_MANY_FILES);
+
+                // Extract the key name and the filename, if it's a file
+                const match = !isFile ? key.match(/name="(.*)"/) : key.match(/name="(.*)"; filename="(.*)"/);
+
+                // If the key name is not available, skip the part
                 if(!match || !match[1] || match[1] === '') continue;
 
+                const filename = match && match[2] ? match[2] : '';
+                if(filename.length > this.config.maxFilenameLength) throw new Error(ERRORS.FILENAME_TOO_LONG);
+
                 const keyName = match[1];
+
                 if(keyName === '__proto__') throw new Error(ERRORS.INVALID_INPUT);
                 if(keyName.length > this.config.maxKeyLength) throw new Error(ERRORS.KEY_TOO_LONG);
                 let body: string | number | boolean | Record<string, any> = '';
@@ -228,7 +248,12 @@ export class FormDataParser implements Parser {
                 if(part.parts) {
                     body = await inner(part.parts);
                 } else {
-                    body = part.body ? possibleCast(decoder.decode(part.body), this.config) : '';
+                    if(isFile) {
+                        // If the part is a file, return an object with the filename and the content type
+                        body = part.body ? new File([part.body], filename, { type: contentType }) : '';
+                    } else {
+                        body = part.body ? possibleCast(decoder.decode(part.body), this.config) : '';
+                    }
                 }
 
                 const path = extractNestedKey(keyName);

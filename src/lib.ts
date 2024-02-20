@@ -20,6 +20,8 @@ export const ERRORS = {
     INVALID_INPUT: "INVALID_INPUT",
     TOO_DEEP: "TOO_DEEP",
     KEY_TOO_LONG: "KEY_TOO_LONG",
+    TOO_MANY_FILES: "TOO_MANY_FILES",
+    FILENAME_TOO_LONG: "FILENAME_TOO_LONG",
 };
 
 /**
@@ -46,8 +48,14 @@ export interface BodyguardConfig {
 }
 
 export interface BodyguardFormConfig extends BodyguardConfig {
-    /** Convert plus signs to spaces in urlencoded data */
+    /** Convert plus signs to spaces in urlencoded form data */
     convertPluses: boolean;
+    /** The maximum number of files in a multipart form */
+    maxFiles: number;
+    /** The maximum length of a filename in a multipart form */
+    maxFilenameLength: number;
+    /** Allow list for content types in a multipart form */
+    allowedContentTypes: string[] | undefined;
 }
 
 export type BodyguardError = {
@@ -67,6 +75,7 @@ export type JSONLike =
     | string
     | number
     | boolean
+    | File
     | null;
 
 export type BodyguardResult<SuccessType = JSONLike> = BodyguardSuccess<SuccessType> | BodyguardError;

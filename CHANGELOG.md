@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 (2024-02-20)
+
+### New Features
+
+- **File upload support in multipart forms.** `form()` and `softForm()` will return uploaded files as [File objects](https://developer.mozilla.org/en-US/docs/Web/API/File).
+
 ## 1.4.0 (2024-02-19)
 
 ### Breaking Changes

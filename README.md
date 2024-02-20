@@ -1,6 +1,7 @@
 ![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/01db31c8-fb8f-4a40-9b4b-027836c695b3)
 
 <p align="center">
+  <a href="https://github.com/auth70/bodyguard/actions"><img src="https://img.shields.io/github/actions/workflow/status/auth70/bodyguard/ci.yml?logo=github" alt="build"></a>
   <a href="https://www.npmjs.com/package/@auth70/bodyguard"><img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm"></a>
   <a href="https://www.npmjs.com/package/@auth70/bodyguard"><img src="https://img.shields.io/npm/types/@auth70/bodyguard" alt="npm type definitions"></a>
 </p>
@@ -20,6 +21,7 @@ npm install --save @auth70/bodyguard
 ## Features
 
 - **Parse (nested!) object *and* array form data with dot (`foo.bar`) and square bracket `(baz[0])` syntax** in both multipart and URL-encoded forms.
+- **Parse file uploads in multipart form data** and return them as `File` objects.
 - **Prevents resource exhaustion** by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
 - **Guards against [prototype pollution](https://cheatsheetseries.owasp.org/cheatsheets/Prototype_Pollution_Prevention_Cheat_Sheet.html)** in JSON and form data.
 - **Enforce parsed data to pass a validator** using [Zod](https://zod.dev/) or similar library *(optional)*.
@@ -31,10 +33,6 @@ npm install --save @auth70/bodyguard
 - ✅ Multi-boundary multipart form data (`multipart/form-data`)
 - ✅ URL-encoded form data (`application/x-www-form-urlencoded`)
 - ✅ Raw UTF-8 text (`text/plain`)
-
-#### TODO
-
-- File uploads in multipart form data.
 
 ## Usage
 
@@ -110,15 +108,21 @@ Even though these examples focus on Request bodies, there is nothing stopping yo
 
 JSON data is returned like `JSON.parse()` would return it.
 
-### Form data
-
-#### Multipart forms
+### Multipart form data
 
 Trailing newlines are stripped from the end of values.
 
-#### URL-encoded forms
+### URL-encoded form data
 
 Values are decoded using `decodeURIComponent()`.
+
+#### Handling plus (+) signs URL-encoded forms
+
+If you are submitting a javascript-free form, you may want to convert `+` to spaces in the form data, as browsers regularly transform spaces into pluses when submitting urlencoded forms. Javascript submitted forms don't have this problem.
+
+You can do this automatically by passing `convertPluses: true` as an option to `form()` or `softForm()`. It won't affect multipart form data, so consider using `enctype="application/x-www-form-urlencoded"` in your form tag if you need proper spaces and plus signs. Note that this is disabled by default, and if you enable it, you won't be able to distinguish between spaces and pluses in the form data.
+
+### Common form data parsing
 
 #### Numbers
 
@@ -182,11 +186,7 @@ The above comes out as:
 }
 ```
 
-#### Handling plus (+) signs url-encoded forms
-
-If you are submitting a javascript-free form, you may want to convert `+` to spaces in the form data, as browsers regularly transform spaces into pluses when submitting urlencoded forms. Javascript submitted forms don't have this problem.
-
-You can do this automatically by passing `convertPluses: true` as an option to `form()` or `softForm()`. It won't affect multipart form data, so consider using `enctype="application/x-www-form-urlencoded"` in your form tag if you need proper spaces and plus signs. Note that this is disabled by default, and if you enable it, you won't be able to distinguish between spaces and pluses in the form data.
+---
 
 ## Examples
 
@@ -279,40 +279,49 @@ app.post('/page', (c) => {
 
 </details>
 
+---
+
 ## API
+
+Below are the methods and types available in the Bodyguard class.
 
 ### Constructor
 
 #### `new Bodyguard(config)`
 
-- `options` (optional): `BodyguardConfig`
+- `config?`: `BodyguardConfig`
+
+---
 
 ### Types
 
 #### `BodyguardConfig`
 
-- `maxSize` (optional): `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
-- `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
-- `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
-- `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
-- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `false`
-- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
+- `maxSize?`: `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
+- `maxKeys?`: `number` - Maximum allowed number of keys in the body. Default: `100`
+- `maxDepth?`: `number` - Maximum allowed depth of the body. Default: `10`
+- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
+- `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
+- `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 
 #### `BodyguardFormConfig` (extends `BodyguardConfig`, used in `form()` and `softForm()`)
 
-- `maxSize` (optional): `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
-- `maxKeys` (optional): `number` - Maximum allowed number of keys in the body. Default: `100`
-- `maxDepth` (optional): `number` - Maximum allowed depth of the body. Default: `10`
-- `maxKeyLength` (optional): `number` - Maximum allowed length of a key in the body. Default: `100`
-- `castNumbers` (optional): `boolean` - Whether to cast numbers from strings in form data. Default: `false`
-- `castBooleans` (optional): `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
-- `convertPluses` (optional): `boolean` - Whether to convert `+` to spaces in urlencoded form data. Default: `false`
+- `maxSize?`: `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
+- `maxKeys?`: `number` - Maximum allowed number of keys in the body. Default: `100`
+- `maxDepth?`: `number` - Maximum allowed depth of the body. Default: `10`
+- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
+- `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
+- `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
+- `convertPluses?`: `boolean` - Whether to convert `+` to spaces in urlencoded form data. Default: `false`
+- `maxFiles?`: `number` - Maximum allowed number of files in the body. Default: `Infinity`
+- `maxFilenameLength?`: `number` - Maximum allowed length of a filename in the body. Default: `255`
+- `allowedContentTypes?`: `string[]` - Allowed content types for file uploads. Default: `undefined`
 
 #### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError`
 
 - `success`: `boolean` - Whether the parsing was successful.
-- `error` (optional): `Error` - The error that occurred, if any.
-- `value` (optional): `T` - The parsed value, if successful.
+- `error?`: `Error` - The error that occurred, if any.
+- `value?`: `T` - The parsed value, if successful.
 
 #### `BodyguardSuccess<T>`
 
@@ -326,11 +335,13 @@ app.post('/page', (c) => {
 
 #### `BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T`
 
-### Automatic content type detection
+---
 
-#### `Bodyguard.softPat(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+### Form parsing
 
-Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
+#### `Bodyguard.softForm(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
@@ -346,9 +357,9 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.pat(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.form(input, validator, options): Promise<ReturnType<ValidatorType>>`
 
-Parses a request or response body into a JavaScript object. Internally uses `json()` or `form()` depending on the content type. Errors are thrown.
+Parses an urlencoded or multipart form data stream into a JavaScript object. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
@@ -356,9 +367,11 @@ Parses a request or response body into a JavaScript object. Internally uses `jso
 
 Returns the parsed object (not a `BodyguardResult`).
 
+---
+
 ### JSON parsing
 
-#### `Bodyguard.softJson(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softJson(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
 Parses a JSON stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
@@ -376,7 +389,7 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.json(input: Request | Response, validator?: ValidatorType, config?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.json(input, validator, options): Promise<ReturnType<ValidatorType>>`
 
 Parses a JSON stream into a JavaScript object. Errors are thrown.
 
@@ -386,15 +399,37 @@ Parses a JSON stream into a JavaScript object. Errors are thrown.
 
 Returns the parsed object (not a `BodyguardResult`).
 
-### Form parsing
+---
 
-#### `Bodyguard.softForm(input: Request | Response, validator?: ValidatorType, options?: BodyguardFormConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+### Text parsing
 
-Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
+#### `Bodyguard.softText(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
 
-- `request`: `Request` - The request to parse.
-- `validator` (optional): `ValidatorType extends BodyguardValidator` - A validator to validate the parsed object against. Default: `undefined`
-- `options` (optional): `BodyguardConfig` - Options to override the constructor options. Default: `undefined`
+Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. If an error occurs, it is returned instead of throwing.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
+
+#### `Bodyguard.text(input, validator, options): Promise<ReturnType<ValidatorType>>`
+
+Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. Errors are thrown.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
+- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
+
+---
+
+### Automatic content type detection
+
+#### `Bodyguard.softPat(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+
+Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
+
+- `input: Request | Response` - Fetch API compatible input.
+- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
+- `config?: Partial<BodyguardConfig | BodyguardFormConfig>` - Optional config to override the constructor options.
 
 Returns a `BodyguardResult`:
 
@@ -406,37 +441,23 @@ Returns a `BodyguardResult`:
 }
 ```
 
-#### `Bodyguard.form(input: Request | Response, validator?: ValidatorType, options?: BodyguardFormConfig): Promise<ReturnType<ValidatorType>>`
+#### `Bodyguard.pat(input, validator, options): Promise<ReturnType<ValidatorType>>`
 
-Parses an urlencoded or multipart form data stream into a JavaScript object. Errors are thrown.
+Parses a request or response body into a JavaScript object. Internally uses `json()` or `form()` depending on the content type. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
-- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
+- `config?: Partial<BodyguardConfig | BodyguardFormConfig>` - Optional config to override the constructor options.
 
 Returns the parsed object (not a `BodyguardResult`).
 
-### Text parsing
-
-#### `Bodyguard.softText(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
-
-Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. If an error occurs, it is returned instead of throwing.
-
-- `input: Request | Response` - Fetch API compatible input.
-- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
-- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
-
-#### `Bodyguard.text(input: Request | Response, validator?: ValidatorType, options?: BodyguardConfig): Promise<ReturnType<ValidatorType>>`
-
-Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. Errors are thrown.
-
-- `input: Request | Response` - Fetch API compatible input.
-- `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed string against.
-- `config?: Partial<BodyguardConfig>` - Optional config to override the constructor options.
+---
 
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+---
 
 ## License
 

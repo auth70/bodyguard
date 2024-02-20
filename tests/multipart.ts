@@ -5,6 +5,45 @@ import { test } from 'uvu';
 import { ERRORS } from '../src/lib.js';
 import { createMultipartRequest } from './util.js';
 
+test('it passes file upload (softForm with multipart)', async () => {
+    
+    const bodyguard = new Bodyguard();
+
+    const [req, boundary] = createMultipartRequest({
+        "file\"; filename=\"hm.txt": "foobar"
+    });
+
+    const result = await bodyguard.softForm(req);
+
+    assert.equal(result.success, true);
+
+    if(result.success) {
+        assert.equal(result.value.file instanceof File, true);
+    }
+
+});
+
+test('it throws if maxFiles is exceeded (softForm with multipart)', async () => {
+    
+    const bodyguard = new Bodyguard({
+        maxFiles: 1
+    });
+
+    const [req, boundary] = createMultipartRequest({
+        "file1\"; filename=\"hm.txt": "foobar",
+        "file2\"; filename=\"hm2.txt": "foobar"
+    });
+
+    const result = await bodyguard.softForm(req);
+
+    assert.equal(result.success, false);
+
+    if(!result.success) {
+        assert.equal(result.error.message, (ERRORS.TOO_MANY_FILES));
+    }
+
+});
+
 test('it passes nested multipart form with arrays (softForm with multipart)', async () => {
 
     const bodyguard = new Bodyguard();

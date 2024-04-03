@@ -2,7 +2,7 @@ import type { BodyguardValidator, JSONLike, BodyguardConfig, BodyguardError, Bod
 import { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE } from "./lib.js";
 import { FormDataParser, JSONParser, TextParser, URLParamsParser } from "./parser.js";
 
-export type { BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardValidator, JSONLike };
+export type { BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardFormConfig, BodyguardValidator, JSONLike };
 export { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, FormDataParser, JSONParser, TextParser, URLParamsParser};
 
 export class Bodyguard {

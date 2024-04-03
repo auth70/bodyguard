@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 (2024-04-03)
+
+- Added missing export for `BodyguardFormConfig` interface
+
 ## 1.5.0 (2024-02-20)
 
 ### New Features

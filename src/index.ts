@@ -109,51 +109,11 @@ export class Bodyguard {
         }
     }
 
-    /**
-     * Attempts to parse a form from a Request or Response. Returns the parsed object in case of success and 
-     * an error object in case of failure.
-     * @param {Request | Response} input - Request or Response to parse the form from.
-     * @param {BodyguardValidator} validator - Optional validator to validate the parsed form against.
-     * @param {Partial<BodyguardFormConfig>} config - Optional configuration to override the default configuration.
-     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
-     */
-    async softForm<
-        T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+    private async formInternal<
+        K extends JSONLike = JSONLike
     > (
         input: Request | Response,
-        validator?: T,
-        config?: Partial<BodyguardFormConfig>
-    ): Promise<BodyguardResult<K>> {
-        try {
-            const res = await this.form(input, validator, config);
-            return {
-                success: true,
-                value: res as K
-            }
-        } catch(e: any) {
-            return {
-                success: false,
-                error: e
-            }
-        }
-    }
-    
-    /**
-     * Parses a form from a Request or Response. Form could be urlencoded or multipart.
-     * @param {Request | Response} input - Request or Response to parse the form from.
-     * @param {BodyguardValidator} validator - Optional validator to validate the parsed form against.
-     * @param {Partial<BodyguardFormConfig>} config - Optional configuration to override the default configuration.
-     * @return {Promise<K>} - Parsed form from the Request or Response.
-     * @throws {Error} - If content-type is not present or is invalid, or the form data is invalid, it throws an error.
-     */
-    async form<
-        T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
-    > (
-        input: Request | Response,
-        validator?: T,
-        config?: Partial<BodyguardFormConfig>
+        config?: Partial<BodyguardFormConfig>,
     ): Promise<K> {
         if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
         const instanceConfig = this.constructConfig(config || {});
@@ -177,12 +137,89 @@ export class Bodyguard {
         const parser = bodyType === "params" ? new URLParamsParser(instanceConfig) : new FormDataParser(instanceConfig as BodyguardFormConfig, boundary);
         const ret = await parser.parse(input.body);
 
+        return ret as K;
+    }
+
+    /**
+     * Attempts to parse a form from a Request or Response. Returns the parsed object in case of success and 
+     * an error object in case of failure.
+     * @param {Request | Response} input - Request or Response to parse the form from.
+     * @param {BodyguardValidator} validator - Optional validator to validate the parsed form against.
+     * @param {Partial<BodyguardFormConfig>} config - Optional configuration to override the default configuration.
+     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     */
+    async softForm<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+    > (
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardFormConfig>
+    ): Promise<BodyguardResult<K>> {
+        try {
+            const ret = await this.formInternal(input, config);
+            try {
+                if(validator) {
+                    return {
+                        success: true,
+                        value: await Promise.resolve(validator(ret)) as K
+                    }
+                }
+                return {
+                    success: true,
+                    value: ret as K
+                }
+            } catch(err) {
+                return {
+                    success: false,
+                    error: err,
+                    value: ret as K
+                }
+            }
+        } catch(e: any) {
+            return {
+                success: false,
+                error: e
+            }
+        }
+    }
+    
+    /**
+     * Parses a form from a Request or Response. Form could be urlencoded or multipart.
+     * @param {Request | Response} input - Request or Response to parse the form from.
+     * @param {BodyguardValidator} validator - Optional validator to validate the parsed form against.
+     * @param {Partial<BodyguardFormConfig>} config - Optional configuration to override the default configuration.
+     * @param {boolean} soft - Whether to throw an error or return an error object in case of failure.
+     * @return {Promise<K>} - Parsed form from the Request or Response.
+     * @throws {Error} - If content-type is not present or is invalid, or the form data is invalid, it throws an error.
+     */
+    async form<
+        T extends BodyguardValidator,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+    > (
+        input: Request | Response,
+        validator?: T,
+        config?: Partial<BodyguardFormConfig>,
+        soft?: boolean
+    ): Promise<K> {
+        const ret = await this.formInternal(input, config);
         if(validator) {
             return await Promise.resolve(validator(ret)) as K;
         }
-
         return ret as K;
+    }
 
+    private async jsonInternal<
+        K extends JSONLike = JSONLike
+    > (
+        input: Request | Response,
+        config?: Partial<BodyguardConfig>
+    ): Promise<K> {
+        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        const instanceConfig = this.constructConfig(config || {});
+        const parser = new JSONParser(instanceConfig);
+        const ret = await parser.parse(input.body);
+        return ret as K;
     }
 
     /**
@@ -202,10 +239,24 @@ export class Bodyguard {
         config?: Partial<BodyguardConfig>
     ): Promise<BodyguardResult<K>> {
         try {
-            const res = await this.json(input, validator, config);
-            return {
-                success: true,
-                value: res as K
+            const ret = await this.jsonInternal(input, config);
+            try {
+                if(validator) {
+                    return {
+                        success: true,
+                        value: await Promise.resolve(validator(ret)) as K
+                    }
+                }
+                return {
+                    success: true,
+                    value: ret as K
+                }
+            } catch(err) {
+                return {
+                    success: false,
+                    error: err,
+                    value: ret as K
+                }
             }
         } catch(e: any) {
             return {
@@ -231,17 +282,23 @@ export class Bodyguard {
         validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
-
-        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
-        const instanceConfig = this.constructConfig(config || {});
-
-        const parser = new JSONParser(instanceConfig);
-        const ret = await parser.parse(input.body);
-
+        const ret = await this.jsonInternal(input, config);
         if(validator) {
             return await Promise.resolve(validator(ret)) as K;
         }
+        return ret as K;
+    }
 
+    private async textInternal<
+        K extends JSONLike = JSONLike
+    > (
+        input: Request | Response,
+        config?: Partial<BodyguardConfig>
+    ): Promise<K> {
+        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
+        const instanceConfig = this.constructConfig(config || {});
+        const parser = new TextParser(instanceConfig);
+        const ret = await parser.parse(input.body);
         return ret as K;
     }
 
@@ -262,10 +319,24 @@ export class Bodyguard {
         config?: Partial<BodyguardConfig>
     ): Promise<BodyguardResult<K>> {
         try {
-            const res = await this.text(input, validator, config);
-            return {
-                success: true,
-                value: res as K
+            const ret = await this.textInternal(input, config);
+            try {
+                if(validator) {
+                    return {
+                        success: true,
+                        value: await Promise.resolve(validator(ret)) as K
+                    }
+                }
+                return {
+                    success: true,
+                    value: ret as K
+                }
+            } catch(err) {
+                return {
+                    success: false,
+                    error: err,
+                    value: ret as K
+                }
             }
         } catch(e: any) {
             return {
@@ -291,10 +362,7 @@ export class Bodyguard {
         validator?: T,
         config?: Partial<BodyguardConfig>
     ): Promise<K> {
-        if(!input.body) throw new Error(ERRORS.BODY_NOT_AVAILABLE);
-        const instanceConfig = this.constructConfig(config || {});
-        const parser = new TextParser(instanceConfig);
-        const ret = await parser.parse(input.body);
+        const ret = await this.textInternal(input, config);
         if(validator) {
             return await Promise.resolve(validator(ret)) as K;
         }

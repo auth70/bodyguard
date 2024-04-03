@@ -58,17 +58,6 @@ export interface BodyguardFormConfig extends BodyguardConfig {
     allowedContentTypes: string[] | undefined;
 }
 
-export type BodyguardError = {
-    success: false;
-    /** The error message */
-    error: unknown;
-};
-
-export type BodyguardSuccess<T = JSONLike> = {
-    success: true;
-    value: T;
-};
-
 export type JSONLike =
     | { [property: string]: JSONLike }
     | readonly JSONLike[]
@@ -78,7 +67,20 @@ export type JSONLike =
     | File
     | null;
 
-export type BodyguardResult<SuccessType = JSONLike> = BodyguardSuccess<SuccessType> | BodyguardError;
+export type BodyguardError<T = JSONLike> = {
+    success: false;
+    /** The error message */
+    error: unknown;
+    /** The value that was being processed. May be undefined if the error occurred before the value was processed. */
+    value?: T;
+};
+
+export type BodyguardSuccess<T = JSONLike> = {
+    success: true;
+    value: T;
+};
+
+export type BodyguardResult<T = JSONLike> = BodyguardSuccess<T> | BodyguardError<T>;
 
 /*
  * Utility functions

@@ -317,7 +317,7 @@ Below are the methods and types available in the Bodyguard class.
 - `maxFilenameLength?`: `number` - Maximum allowed length of a filename in the body. Default: `255`
 - `allowedContentTypes?`: `string[]` - Allowed content types for file uploads. Default: `undefined`
 
-#### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError`
+#### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError<T>`
 
 - `success`: `boolean` - Whether the parsing was successful.
 - `error?`: `Error` - The error that occurred, if any.
@@ -328,10 +328,11 @@ Below are the methods and types available in the Bodyguard class.
 - `success`: `true`
 - `value`: `T`
 
-#### `BodyguardError`
+#### `BodyguardError<T>`
 
 - `success`: `false`
 - `error`: `Error`
+- `value?`: `T`
 
 #### `BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T`
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2 (2024-04-03)
+
+- `soft` versions can now also return the parsed value if there was one returned but it did not pass the validation. This is useful when you want to show the user the parsed value in the form after a validation error.
+
 ## 1.5.1 (2024-04-03)
 
 - Added missing export for `BodyguardFormConfig` interface

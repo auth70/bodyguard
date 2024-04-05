@@ -1,6 +1,6 @@
 {
   "name": "@auth70/bodyguard",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Fetch API compatible streaming JSON and form data body parser and guard",
   "keywords": [
     "request",
@@ -32,13 +32,13 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@exact-realty/multipart-parser": "^1.0.12",
+    "@exact-realty/multipart-parser": "^1.0.13",
     "@streamparser/json": "^0.0.20"
   },
   "devDependencies": {
     "c8": "^9.1.0",
     "tsm": "^2.3.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.4.4",
     "uvu": "^0.5.6",
     "zod": "^3.22.4"
   },

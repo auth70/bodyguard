@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 (2024-04-5)
+
+Updated dependencies
+
 ## 1.6.0 (2024-04-05)
 
 `soft` versions now include a [typed error property `GenericError { issues?: GenericIssue[] }`](./src/lib.ts#L73), which is the error thrown by the validator. It is based on a Zod error, but you may type it as something else if your parser throws a different error type. This is helpful for type narrowing (ie. you don't have to type `(result.error as any).issues` to get to the issues).
@@ -22,14 +26,6 @@ Added missing export for `BodyguardFormConfig` interface
 
 ## 1.4.0 (2024-02-19)
 
-### Breaking Changes
+- **Breaking:** The `error` returned from `soft*` methods is now the error thrown by the handler without coercing it into a string. If you need further type narrowing, you can use the `as` operator in your catch block. Bodyguard errors are regular `Error` instances with the message as one of the consts from `ERRORS`.
 
-The `error` returned from `soft*` methods is now the error thrown by the handler without coercing it into a string. If you need further type narrowing, you can use the `as` operator in your catch block. Bodyguard errors are regular `Error` instances with the message as one of the consts from `ERRORS`.
-
-### New Features
-
-You can pass `convertPluses` as an option to the form methods to convert `+` to spaces in the form data when it's submitted in URL-encoded format. It won't affect multipart form data.
-
-### Updates
-
-Updated dependencies.
+- You can pass `convertPluses` as an option to the form methods to convert `+` to spaces in the form data when it's submitted in URL-encoded format. It won't affect multipart form data.

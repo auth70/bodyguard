@@ -74,11 +74,11 @@ export type GenericIssue = {
     code: string;
     path: (string | number)[];
     message: string;
-    minimum?: number;
-    maximum?: number;
+    minimum?: number | bigint;
+    maximum?: number | bigint;
     exact?: boolean;
     inclusive?: boolean;
-    validation?: string;
+    validation?: any;
 };
 
 export type GenericError = { issues?: GenericIssue[] };

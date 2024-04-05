@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.6.1 (2024-04-5)
+## 1.6.2 (2024-04-05)
+
+Better GenericIssue type
+
+## 1.6.1 (2024-04-05)
 
 Updated dependencies
 

@@ -37,9 +37,30 @@ test('zod: it uses a validator to parse a value (softForm with urlencoded)', asy
 
     if(result.success) {
         const data = result.value;
-        assert.equal(data.a, 1);
+        assert.equal(data.a, 1, 'case a');
     } else {
-        // result.error?.terror
+        //result.error?.terror
+    }
+
+    const req2 = new Request("http://localhost", {
+        method: "POST",
+        headers: {
+            "content-type": "application/x-www-form-urlencoded"
+        },
+        body: "a=1&b=2&c.d=3&e=foo&f.g=4&f.bgfd=5&f.h=foo bar"
+    });
+
+    const result2 = await bodyguard.softForm(req2, schema.parse, {
+        castNumbers: true
+    });
+
+    assert.equal(result2.success, true);
+
+    if(result2.success) {
+        const data = result2.value;
+        assert.equal(data.b, 2, 'case b');
+    } else {
+        //result.error?.terror
     }
 });
 

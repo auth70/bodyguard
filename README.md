@@ -340,7 +340,7 @@ Below are the methods and types available in the Bodyguard class.
 
 ### Form parsing
 
-#### `Bodyguard.softForm(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softForm<ValidatorType, ErrorType>(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>, ErrorType>>`
 
 Parses an urlencoded or multipart form data stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
@@ -372,7 +372,7 @@ Returns the parsed object (not a `BodyguardResult`).
 
 ### JSON parsing
 
-#### `Bodyguard.softJson(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softJson<ValidatorType, ErrorType>(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>, ErrorType>>`
 
 Parses a JSON stream into a JavaScript object. If an error occurs, it is returned instead of throwing.
 
@@ -404,7 +404,7 @@ Returns the parsed object (not a `BodyguardResult`).
 
 ### Text parsing
 
-#### `Bodyguard.softText(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softText<ValidatorType, ErrorType>(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>, ErrorType>>`
 
 Parses raw UTF-8 text into a string. The byte limit is enforced but no key or depth limits are enforced as there is no way to know what the structure of the text is. If an error occurs, it is returned instead of throwing.
 
@@ -424,7 +424,7 @@ Parses raw UTF-8 text into a string. The byte limit is enforced but no key or de
 
 ### Automatic content type detection
 
-#### `Bodyguard.softPat(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>>>`
+#### `Bodyguard.softPat<ValidatorType, ErrorType>(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>, ErrorType>>`
 
 Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
 

@@ -1,8 +1,8 @@
-import type { BodyguardValidator, JSONLike, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardFormConfig } from "./lib.js";
+import type { BodyguardValidator, JSONLike, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardFormConfig, GenericIssue, GenericError } from "./lib.js";
 import { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE } from "./lib.js";
 import { FormDataParser, JSONParser, TextParser, URLParamsParser } from "./parser.js";
 
-export type { BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardFormConfig, BodyguardValidator, JSONLike };
+export type { GenericIssue, GenericError, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardFormConfig, BodyguardValidator, JSONLike };
 export { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, FormDataParser, JSONParser, TextParser, URLParamsParser};
 
 export class Bodyguard {
@@ -53,16 +53,17 @@ export class Bodyguard {
      * @param {Request | Response} input - Request or Response to parse the body from.
      * @param {BodyguardValidator} validator - Optional validator to validate the parsed body against.
      * @param {Partial<BodyguardConfig | BodyguardFormConfig>} config - Optional configuration to override the default configuration.
-     * @returns {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     * @returns {Promise<BodyguardResult<E, K>>} - Result of the parsing operation.
      */
     async softPat<
         T extends BodyguardValidator,
+        E = GenericError,
         K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike,
     > (
         input: Request | Response,
         validator?: T,
         config?: Partial<BodyguardConfig | BodyguardFormConfig>
-    ): Promise<BodyguardResult<K>> {
+    ): Promise<BodyguardResult<K, E>> {
         try {
             const res = await this.pat(input, validator, config);
             return {
@@ -146,16 +147,17 @@ export class Bodyguard {
      * @param {Request | Response} input - Request or Response to parse the form from.
      * @param {BodyguardValidator} validator - Optional validator to validate the parsed form against.
      * @param {Partial<BodyguardFormConfig>} config - Optional configuration to override the default configuration.
-     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     * @return {Promise<BodyguardResult<E, K>>} - Result of the parsing operation.
      */
     async softForm<
         T extends BodyguardValidator,
-        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike
+        E = GenericError,
+        K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike,
     > (
         input: Request | Response,
         validator?: T,
         config?: Partial<BodyguardFormConfig>
-    ): Promise<BodyguardResult<K>> {
+    ): Promise<BodyguardResult<K, E>> {
         try {
             const ret = await this.formInternal(input, config);
             try {
@@ -172,7 +174,7 @@ export class Bodyguard {
             } catch(err) {
                 return {
                     success: false,
-                    error: err,
+                    error: err as E,
                     value: ret as K
                 }
             }
@@ -228,16 +230,17 @@ export class Bodyguard {
      * @param {Request | Response} input - Request or Response to parse the JSON from.
      * @param {BodyguardValidator} validator - Optional validator to validate the parsed JSON against.
      * @param {BodyguardConfig} config - Optional configuration to override the default configuration.
-     * @return {Promise<BodyguardResult<K>>} - Result of the parsing operation.
+     * @return {Promise<BodyguardResult<E, K>>} - Result of the parsing operation.
      */
     async softJson<
         T extends BodyguardValidator,
+        E = GenericError,
         K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : JSONLike,
     > (
         input: Request | Response,
         validator?: T,
         config?: Partial<BodyguardConfig>
-    ): Promise<BodyguardResult<K>> {
+    ): Promise<BodyguardResult<K, E>> {
         try {
             const ret = await this.jsonInternal(input, config);
             try {
@@ -254,7 +257,7 @@ export class Bodyguard {
             } catch(err) {
                 return {
                     success: false,
-                    error: err,
+                    error: err as E,
                     value: ret as K
                 }
             }
@@ -312,12 +315,13 @@ export class Bodyguard {
      */
     async softText<
         T extends BodyguardValidator,
+        E = GenericError,
         K extends JSONLike = T extends BodyguardValidator ? ReturnType<T> : string,
     >(
         input: Request | Response,
         validator?: T,
         config?: Partial<BodyguardConfig>
-    ): Promise<BodyguardResult<K>> {
+    ): Promise<BodyguardResult<K, E>> {
         try {
             const ret = await this.textInternal(input, config);
             try {
@@ -334,7 +338,7 @@ export class Bodyguard {
             } catch(err) {
                 return {
                     success: false,
-                    error: err,
+                    error: err as E,
                     value: ret as K
                 }
             }

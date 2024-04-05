@@ -1,6 +1,6 @@
 {
   "name": "@auth70/bodyguard",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Fetch API compatible streaming JSON and form data body parser and guard",
   "keywords": [
     "request",
@@ -39,7 +39,8 @@
     "c8": "^9.1.0",
     "tsm": "^2.3.0",
     "typescript": "^5.3.3",
-    "uvu": "^0.5.6"
+    "uvu": "^0.5.6",
+    "zod": "^3.22.4"
   },
   "exports": {
     ".": {

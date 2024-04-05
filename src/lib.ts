@@ -30,7 +30,7 @@ export const ERRORS = {
 
 export type State = 'START' | 'KEY' | 'VALUE';
 
-export type BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T;
+export type BodyguardValidator<T extends JSONLike = JSONLike> = (data: unknown) => T;
 
 export interface BodyguardConfig {
     /** The maximum number of keys */
@@ -67,22 +67,41 @@ export type JSONLike =
     | File
     | null;
 
-export type BodyguardError<T = JSONLike> = {
+/**
+ * A standard generic issue. This is based on the Zod issue type, but may be thrown by other libraries through a possible rethrowing adapter.
+ */
+export type GenericIssue = {
+    code: string;
+    path: (string | number)[];
+    message: string;
+    minimum?: number;
+    maximum?: number;
+    exact?: boolean;
+    inclusive?: boolean;
+    validation?: string;
+};
+
+export type GenericError = { issues?: GenericIssue[] };
+
+export type BodyguardError<ErrorType = GenericError, ValueType extends JSONLike = Record<string, any>> = {
     success: false;
     /** The error message */
-    error: unknown;
+    error: ErrorType;
     /** The value that was being processed. May be undefined if the error occurred before the value was processed. */
-    value?: T;
+    value?: ValueType;
 };
 
-export type BodyguardSuccess<T = JSONLike> = {
+export type BodyguardSuccess<ValueType extends JSONLike = Record<string, any>> = {
     success: true;
-    value: T;
+    value: ValueType;
 };
 
-export type BodyguardResult<T = JSONLike> = BodyguardSuccess<T> | BodyguardError<T>;
+export type BodyguardResult<
+    ValueType extends JSONLike = Record<string, any>,
+    ErrorType = GenericError,
+> = BodyguardSuccess<ValueType> | BodyguardError<ErrorType, ValueType>;
 
-/*
+/**
  * Utility functions
  */  
 

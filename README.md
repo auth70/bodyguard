@@ -1,5 +1,3 @@
-![Fox knight](https://github.com/auth70/bodyguard/assets/55932282/01db31c8-fb8f-4a40-9b4b-027836c695b3)
-
 <p align="center">
   <a href="https://github.com/auth70/bodyguard/actions"><img src="https://img.shields.io/github/actions/workflow/status/auth70/bodyguard/ci.yml?logo=github" alt="build"></a>
   <a href="https://www.npmjs.com/package/@auth70/bodyguard"><img src="https://img.shields.io/npm/v/@auth70/bodyguard" alt="npm"></a>
@@ -8,9 +6,17 @@
 
 # Bodyguard
 
-Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible, **streaming** body parser. Aims for ease of use with secure defaults. Does not depend on Node.js APIs.
+Simple [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)-compatible, **streaming** body parser. Aims for ease of use with secure defaults.
 
 Takes in a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) or [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object and parses its body into a JavaScript object. If you pass a typed schema validator using [Zod](https://zod.dev/) or similar library, the resulting object will also be typed.
+
+Works in:
+
+- Node.js
+- Browser
+- Bun
+- Deno
+- Cloudflare Workers and other serverless environments
 
 ## Quickstart
 

@@ -1,7 +1,7 @@
 import { JSONParser as JSONStreamingParser, TokenType } from '@streamparser/json';
 import { ERRORS, extractNestedKey, createByteStreamCounter, assignNestedValue, possibleCast } from './lib.js';
 import type { BodyguardConfig, BodyguardFormConfig, JSONLike, State } from './lib.js';
-import parseMultipartMessage, { TMultipartMessageGenerator } from '@exact-realty/multipart-parser';
+import parseMultipartMessage, { TMultipartMessageGenerator } from '@apeleghq/multipart-parser';
 
 export interface Parser {
     config: BodyguardConfig;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 (2025-03-25)
+
+- Updated dependencies (changed to `@apeleghq/multipart-parser`)
+
 ## 1.6.2 (2024-04-05)
 
 Better GenericIssue type

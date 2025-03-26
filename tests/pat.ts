@@ -1,172 +1,161 @@
-import * as assert from 'uvu/assert';
+import { describe, it, expect } from 'vitest';
 import { Bodyguard } from '../src/index.js';
-import { test } from 'uvu';
-import { ERRORS } from '../src/lib.js';
+import { ERRORS, JSONLike, BodyguardValidator } from '../src/lib.js';
 import { createMultipartRequest } from './util.js';
 
-test('it auto negotiates content (softPat with application/json)', async () => {
+describe('patting down tests', () => {
+    it('auto negotiates content (softPat with application/json)', async () => {
+        const bodyguard = new Bodyguard();
 
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify({
-            a: 1,
-        })
-    });
-
-    const result = await bodyguard.softPat(req, (value) => {
-        if(!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(ERRORS.INVALID_INPUT);
-        if(value.a === 1) {
-            return value;
-        }
-        else throw new Error('invalid value');
-    });
-
-    assert.equal(result.success, true);
-
-    if(result.success) {
-        assert.equal(result.value, {
-            a: 1
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json"
+            },
+            body: JSON.stringify({
+                a: 1,
+            })
         });
-    }
 
-});
+        type TestObj = { a: number };
+        const validator = (value: unknown): TestObj => {
+            const typedValue = value as any;
+            if (!typedValue || typeof typedValue !== 'object' || Array.isArray(typedValue)) 
+                throw new Error(ERRORS.INVALID_INPUT);
+            if (typedValue.a === 1) {
+                return typedValue as TestObj;
+            }
+            else throw new Error('invalid value');
+        };
 
-test('it auto negotiates content (pat with text/plain)', async () => {
+        const result = await bodyguard.softPat(req, validator);
 
-    const bodyguard = new Bodyguard();
+        expect(result.success).toBe(true);
 
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "text/plain"
-        },
-        body: "hello world"
-    });
-
-    const result = await bodyguard.pat(req);
-    assert.equal(result, "hello world");
-
-});
-
-test('it auto negotiates content (softPat with application/x-www-form-urlencoded)', async () => {
-
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "application/x-www-form-urlencoded"
-        },
-        body: "a=1&b=2&&c.d=3&e=foo&f.g=4&f.bgfd=5&f.h[]=foo%20bar&c.e=bb"
-    });
-
-    const result = await bodyguard.softPat(req, undefined, {
-        castNumbers: true,
-    });
-
-    assert.equal(result.success, true);
-
-    if(result.success) {
-        const data = result.value as any;
-        assert.equal(data.a, 1);
-        assert.equal(data.b, 2);
-        assert.equal(data.c.d, 3);
-        assert.equal(data.c.e, 'bb');
-        assert.equal(data.e, 'foo');
-        assert.equal(data.f.g, 4);
-        assert.equal(data.f.bgfd, 5);
-        assert.equal(data.f.h[0], 'foo bar');
-    }
-
-});
-
-
-test('it auto negotiates content (softPat with multipart form)', async () => {
-
-    const bodyguard = new Bodyguard({
-        castBooleans: true,
-        castNumbers: true
-    });
-
-    const [req, boundary] = createMultipartRequest({
-        a: "1",
-        b: "true",
-        c: "false",
-    });
-
-    const result = await bodyguard.softPat(req);
-
-    assert.equal(result.success, true);
-
-    if(result.success) {
-        assert.equal(result.value.a, 1);
-        assert.equal(result.value.b, true);
-        assert.equal(result.value.c, false);
-    }
-
-});
-
-test('it throws on invalid content type (softPat)', async () => {
-    
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "application/xml"
-        },
-        body: "<a>1</a>"
-    });
-
-    const result = await bodyguard.softPat(req);
-
-    assert.equal(result.success, false);
-    assert.equal(result.error.message, ERRORS.INVALID_CONTENT_TYPE);
-
-});
-
-test('it throws on no content type (softPat)', async () => {
-    
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        body: "<a>1</a>",
-        headers: {
-            "content-type": ""
+        if (result.success) {
+            expect(result.value).toEqual({ a: 1 });
         }
     });
 
-    const result = await bodyguard.softPat(req);
+    it('auto negotiates content (pat with text/plain)', async () => {
+        const bodyguard = new Bodyguard();
 
-    assert.equal(result.success, false);
-    assert.equal(result.error.message, ERRORS.NO_CONTENT_TYPE);
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "text/plain"
+            },
+            body: "hello world"
+        });
 
-});
-
-test('it throws on no content type (pat)', async () => {
-        
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        body: "<a>1</a>",
-        headers: {
-            "content-type": ""
-        }
-    });
-
-    try {
         const result = await bodyguard.pat(req);
-    } catch(err) {
-        assert.equal(err.message, ERRORS.NO_CONTENT_TYPE);
-    }
+        expect(result).toBe("hello world");
+    });
 
+    it('auto negotiates content (softPat with application/x-www-form-urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "a=1&b=2&&c.d=3&e=foo&f.g=4&f.bgfd=5&f.h[]=foo%20bar&c.e=bb"
+        });
+
+        const result = await bodyguard.softPat(req, undefined, {
+            castNumbers: true,
+        });
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            const data = result.value as any;
+            expect(data.a).toBe(1);
+            expect(data.b).toBe(2);
+            expect(data.c.d).toBe(3);
+            expect(data.c.e).toBe('bb');
+            expect(data.e).toBe('foo');
+            expect(data.f.g).toBe(4);
+            expect(data.f.bgfd).toBe(5);
+            expect(data.f.h[0]).toBe('foo bar');
+        }
+    });
+
+    it('auto negotiates content (softPat with multipart form)', async () => {
+        const bodyguard = new Bodyguard({
+            castBooleans: true,
+            castNumbers: true
+        });
+
+        const [req, boundary] = createMultipartRequest({
+            a: "1",
+            b: "true",
+            c: "false",
+        });
+
+        const result = await bodyguard.softPat(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            type FormData = { a: number; b: boolean; c: boolean };
+            const value = result.value as FormData;
+            expect(value.a).toBe(1);
+            expect(value.b).toBe(true);
+            expect(value.c).toBe(false);
+        }
+    });
+
+    it('throws on invalid content type (softPat)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/xml"
+            },
+            body: "<a>1</a>"
+        });
+
+        const result = await bodyguard.softPat(req);
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error.message).toBe(ERRORS.INVALID_CONTENT_TYPE);
+        }
+    });
+
+    it('throws on no content type (softPat)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: "<a>1</a>",
+            headers: {
+                "content-type": ""
+            }
+        });
+
+        const result = await bodyguard.softPat(req);
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            expect(result.error.message).toBe(ERRORS.NO_CONTENT_TYPE);
+        }
+    });
+
+    it('throws on no content type (pat)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: "<a>1</a>",
+            headers: {
+                "content-type": ""
+            }
+        });
+
+        await expect(bodyguard.pat(req)).rejects.toThrow(ERRORS.NO_CONTENT_TYPE);
+    });
 });
-
-test.run();

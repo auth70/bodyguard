@@ -81,7 +81,7 @@ export type GenericIssue = {
     validation?: any;
 };
 
-export type GenericError = { issues?: GenericIssue[] };
+export type GenericError = { issues?: GenericIssue[]; message?: string };
 
 export type BodyguardError<ErrorType = GenericError, ValueType extends JSONLike = Record<string, any>> = {
     success: false;

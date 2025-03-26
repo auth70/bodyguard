@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1 (2025-03-25)
+
+- Changed test harness to use Vitest
+- Added further test coverage
+
 ## 1.7.0 (2025-03-25)
 
 - Updated dependencies (changed to `@apeleghq/multipart-parser`)

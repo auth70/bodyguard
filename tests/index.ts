@@ -1,69 +1,59 @@
-import * as assert from 'uvu/assert';
+import { describe, it, expect } from 'vitest';
 
 import { Bodyguard } from '../src/index.js';
-import { test } from 'uvu';
-import { ERRORS } from '../src/lib.js';
+import { ERRORS, JSONLike, BodyguardValidator } from '../src/lib.js';
 
-test('it fails with no content type (softForm)', async () => {
+describe('Bodyguard basic tests', () => {
+    it('fails with no content type (softForm)', async () => {
+        const bodyguard = new Bodyguard();
 
-    const bodyguard = new Bodyguard();
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "",
+            },
+            body: JSON.stringify({ a: 1 })
+        });
 
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "",
-        },
-        body: JSON.stringify({ a: 1 })
+        const validator: BodyguardValidator = (data: unknown): JSONLike => data as JSONLike;
+        const result = await bodyguard.softForm(req, validator);
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error.message).toBe(ERRORS.NO_CONTENT_TYPE);
+        }
     });
 
-    const result = await bodyguard.softForm(req, { a: 1 });
+    it('fails with no body (softForm)', async () => {
+        const bodyguard = new Bodyguard();
 
-    assert.equal(result.success, false);
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json"
+            },
+        });
 
-    if(!result.success) {
-        assert.equal(result.error.message, (ERRORS.NO_CONTENT_TYPE));
-    }
+        const result = await bodyguard.softForm(req);
 
-});
+        expect(result.success).toBe(false);
 
-test('it fails with no body (softForm)', async () => {
-
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
+        if (!result.success) {
+            expect(result.error.message).toBe(ERRORS.BODY_NOT_AVAILABLE);
+        }
     });
 
-    const result = await bodyguard.softForm(req);
+    it('fails with no body (text)', async () => {
+        const bodyguard = new Bodyguard();
 
-    assert.equal(result.success, false);
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json"
+            },
+        });
 
-    if(!result.success) {
-        assert.equal(result.error.message, (ERRORS.BODY_NOT_AVAILABLE));
-    }
-
-});
-
-test('it fails with no body (text)', async () => {
-    
-    const bodyguard = new Bodyguard();
-
-    const req = new Request("http://localhost", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
+        await expect(bodyguard.text(req)).rejects.toThrow(ERRORS.BODY_NOT_AVAILABLE);
     });
-
-    try {
-        const result = await bodyguard.text(req);
-    } catch(err) {
-        assert.equal(err.message, (ERRORS.BODY_NOT_AVAILABLE));
-    }
-
 });
-
-test.run();

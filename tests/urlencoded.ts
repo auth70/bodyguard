@@ -236,6 +236,107 @@ describe('URLEncoded tests', () => {
         }
     });
 
+    it('fails on non-numeric array index (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "foo[bar]=1"
+        });
+
+        const validator: BodyguardValidator = (data: unknown): JSONLike => data as JSONLike;
+        const result = await bodyguard.softForm(req, validator);
+
+        expect(result.success).toBe(false);
+
+        if (!result.success) {
+            expect(result.error.message).toContain("Invalid segment");
+        }
+    });
+
+    it('parses dashed field names (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "first-name=Ada"
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "first-name": "Ada" });
+        }
+    });
+
+    it('parses multiple dashed field names (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "stay-start=x&stay-end=y"
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "stay-start": "x", "stay-end": "y" });
+        }
+    });
+
+    it('parses dashed field names with push arrays (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "a-b[]=1&a-b[]=2"
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "a-b": ["1", "2"] });
+        }
+    });
+
+    it('parses dashed field names with indexed arrays (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "a-b[0]=1&a-b[1]=2"
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "a-b": ["1", "2"] });
+        }
+    });
+
     it('fails on too deep input (softForm with urlencoded)', async () => {
         const bodyguard = new Bodyguard({
             maxDepth: 1,

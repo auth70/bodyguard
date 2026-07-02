@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.2 (2026-07-02)
+
+- Fixed form parsing for field names containing `-` (e.g. `first-name`, `stay-start`) in urlencoded and multipart bodies
+
 ## 1.7.1 (2025-03-25)
 
 - Changed test harness to use Vitest

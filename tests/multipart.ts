@@ -357,4 +357,66 @@ describe('Multipart tests', () => {
         const result = await bodyguard.softForm(req);
         expect(result.success).toBe(true);
     });
+
+    it('parses dashed field names (softForm with multipart)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const [req] = createMultipartRequest({ "first-name": "Ada" });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "first-name": "Ada" });
+        }
+    });
+
+    it('parses multiple dashed field names (softForm with multipart)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const [req] = createMultipartRequest({
+            "stay-start": "x",
+            "stay-end": "y",
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "stay-start": "x", "stay-end": "y" });
+        }
+    });
+
+    it('parses dashed field names with push arrays (softForm with multipart)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const [req] = createMultipartRequest({ "a-b": ["1", "2"] });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "a-b": ["1", "2"] });
+        }
+    });
+
+    it('parses dashed field names with indexed arrays (softForm with multipart)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const [req] = createMultipartRequest({
+            "a-b[0]": "1",
+            "a-b[1]": "2",
+        });
+
+        const result = await bodyguard.softForm(req);
+
+        expect(result.success).toBe(true);
+
+        if (result.success) {
+            expect(result.value).toEqual({ "a-b": ["1", "2"] });
+        }
+    });
 });

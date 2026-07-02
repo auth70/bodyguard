@@ -153,7 +153,7 @@ export function assignNestedValue(obj: Record<string, any>, path: string[], valu
     let current = obj;
     for (let i = 0; i < path.length; i++) {
         const segment = path[i];
-        const arrayMatch = segment.match(/^(\w+)(?:\[(\d*?)\])?$/);
+        const arrayMatch = segment.match(/^([^\[\]]+)(?:\[(\d*)\])?$/);
 
         if (arrayMatch && arrayMatch[1]) {
             const key = arrayMatch[1];

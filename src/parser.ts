@@ -250,7 +250,7 @@ export class FormDataParser implements Parser {
                 } else {
                     if(isFile) {
                         // If the part is a file, return an object with the filename and the content type
-                        body = part.body ? new File([part.body], filename, { type: contentType }) : '';
+                        body = part.body ? new File([new Uint8Array(part.body)], filename, { type: contentType }) : '';
                     } else {
                         body = part.body ? possibleCast(decoder.decode(part.body), this.config) : '';
                     }

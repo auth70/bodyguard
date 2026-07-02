@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.3 (2026-07-02)
+
+- Migrated TypeScript config from deprecated `moduleResolution: "node"` to `NodeNext`
+
 ## 1.7.2 (2026-07-02)
 
 - Fixed form parsing for field names containing `-` (e.g. `first-name`, `stay-start`) in urlencoded and multipart bodies

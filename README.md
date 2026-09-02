@@ -205,6 +205,50 @@ The above comes out as:
 
 ## Examples
 
+### Standard Schema example
+
+<details>
+<summary><strong>Expand example</strong></summary>
+
+Pass a [Standard Schema](https://standardschema.dev/) object (Zod 4, Valibot, ArkType, …) instead of a throwing `.parse` function. On failure, `error.issues` is `{ code: "custom", path, message }[]`. Form values stay strings unless you coerce them with `transform` — leave `castNumbers` off so a zip code like `"00123"` is not turned into a number.
+
+```ts
+import { Bodyguard } from '@auth70/bodyguard';
+import { z } from 'zod';
+
+const bodyguard = new Bodyguard();
+
+const StaySchema = z.object({
+    "first-name": z.string(),
+    "stay-start": z.string(),
+    guests: z.number().int().positive(),
+    zip: z.string(),
+});
+
+const result = await bodyguard.softForm(request, StaySchema, {
+    transform: (value) => {
+        const v = value as { guests?: string; zip?: string };
+        return {
+            ...v,
+            guests: v.guests !== undefined ? Number(v.guests) : v.guests,
+            zip: v.zip, // keep leading zeroes
+        };
+    },
+});
+
+if (!result.success) {
+    // result.error.issues → [{ code: "custom", path: ["guests"], message: "..." }, ...]
+    // result.value is the parsed (and transformed) input
+    return { ok: false, issues: result.error.issues, value: result.value };
+}
+
+return { ok: true, stay: result.value };
+```
+
+Throwing methods work the same way: `form()` / `json()` / `pat()` throw an `Error` whose `.issues` is that mapped array. Function validators (`StaySchema.parse`) still work unchanged.
+
+</details>
+
 ### SvelteKit example
 
 <details>

@@ -72,7 +72,7 @@ export class JSONParser implements Parser {
             };
     
             jsonparser.onValue = ({ value, key, parent, stack }) => {
-                if(key === '__proto__') reject(new Error(ERRORS.INVALID_INPUT));
+                if(key === '__proto__' || key === 'constructor' || key === 'prototype') reject(new Error(ERRORS.INVALID_INPUT));
                 if(key && typeof key === "string" && key.length > this.config.maxKeyLength) reject(new Error(ERRORS.KEY_TOO_LONG));
                 if (stack.length > 0) return;
                 resolve(value as JSONLike);

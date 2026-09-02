@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.0 (2026-09-02)
+
+- Accept Standard Schema v1 objects as validators (`form`/`softForm`, `json`/`softJson`, `text`/`softText`, `pat`/`softPat`). Function validators still work.
+- Add `transform` (after parse, before validate) on form and JSON config so callers can coerce by schema shape without turning on global `castNumbers`/`castBooleans`.
+- Export `assignNestedValue`, `extractNestedKey`, and `possibleCast`. Form keys refuse `__proto__`, `constructor`, and `prototype` segments.
+
 ## 1.7.3 (2026-07-02)
 
 - Migrated TypeScript config from deprecated `moduleResolution: "node"` to `NodeNext`

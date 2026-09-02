@@ -30,8 +30,9 @@ npm install --save @auth70/bodyguard
 - **Parse file uploads in multipart form data** and return them as `File` objects.
 - **Prevents resource exhaustion** by bailing early on streams that are too large, have too many (or too large) keys, or have too much nesting.
 - **Guards against [prototype pollution](https://cheatsheetseries.owasp.org/cheatsheets/Prototype_Pollution_Prevention_Cheat_Sheet.html)** in JSON and form data.
-- **Enforce parsed data to pass a validator** using [Zod](https://zod.dev/) or similar library *(optional)*.
+- **Enforce parsed data to pass a validator** using a [Standard Schema](https://standardschema.dev/) object (Zod 4, Valibot, ArkType, …) or a throwing function *(optional)*.
 - **Cast numbers and booleans from strings in form data** *(optional)*.
+- **Transform parsed data before validation** so callers can coerce by schema shape without turning on global `castNumbers`/`castBooleans`.
 
 ### Supported content types
 
@@ -44,7 +45,12 @@ npm install --save @auth70/bodyguard
 
 **Each method in Bodyguard has two versions.** One that throws an error if the body is invalid (e.g. `form()`), and one that returns an error instead (e.g. `softForm()`). You may pick whichever suits your workflow.
 
-**If you pass in a validator, it *has* to throw an error if the data is invalid.** If the data is valid, it should return the parsed data. If you don't pass in a validator, the parsed data is returned as-is.
+**If you pass in a validator**, it may be either:
+
+- a [Standard Schema v1](https://standardschema.dev/) object (for example a Zod 4 schema). Bodyguard calls `schema["~standard"].validate()` and, on failure, exposes `error.issues` as `{ code: "custom", path, message }[]`.
+- a function that **throws** if the data is invalid and **returns** the parsed data if it is valid (for example `schema.parse` on Zod 3).
+
+If you don't pass in a validator, the parsed data is returned as-is.
 
 ### Getting started
 
@@ -87,7 +93,7 @@ export const actions = {
         // It does not throw an error if the body is invalid (compared to form() which does).
         const result = await bodyguard.softForm(
             request, // Pass in the request
-            RouteSchema.parse // Pass in the validator
+            RouteSchema // Pass in a Standard Schema object (Zod 4) or a throwing parser (RouteSchema.parse)
         );
 
         if(!result.success) {
@@ -134,7 +140,7 @@ You can do this automatically by passing `convertPluses: true` as an option to `
 
 *Auto-cast numbers by passing `castNumbers: true` as an option.*
 
-If the value passes `!isNaN()` it's cast as a number. For example, `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc. *This is disabled by default*.
+If the value passes `!isNaN()` it's cast as a number. For example, `"3"` is returned as `3`, `"3.14"` is returned as `3.14`, etc. *This is disabled by default*. Leave it off when a value like a zip code (`"00123"`) must stay a string; coerce selected fields with `transform` instead.
 
 #### Booleans
 
@@ -146,13 +152,16 @@ If the value is `"true"` or `"false"`, it's cast as a boolean. For example, `"tr
 
 Empty strings are returned as empty strings (`""`), not `null` or `undefined`.
 
-#### Array indices with gaps
+#### Form field name grammar
 
-Array indices with gaps are returned as sparse arrays. For example, `foo[1] = "3"` is returned as `foo: [undefined, 3]`.
+Bodyguard uses the same key grammar for `application/x-www-form-urlencoded` and `multipart/form-data`. The parsers are `extractNestedKey` (split on `.`) and `assignNestedValue` (optional `[index]` / `[]` suffix). Both are exported from the package, along with `possibleCast`, so other code can pin parity against them.
 
-#### Object and array form data
-
-To parse objects from form data, use dot notation in the input name accessor. For arrays, use square brackets.
+- `a.b` nests: `a.b=1` → `{ a: { b: "1" } }`
+- `tags[]` appends: `tags[]=a&tags[]=b` → `{ tags: ["a", "b"] }`
+- `items[0].name` indexes: `items[0].name=Ada` → `{ items: [{ name: "Ada" }] }`. Sparse holes are allowed (`items[2]=x` leaves index 0 and 1 empty).
+- A repeated **plain** name keeps the last value: `a=1&a=2` → `{ a: "2" }`. Use `[]` when you want an array.
+- `__proto__`, `constructor`, and `prototype` segments are refused.
+- File parts stay [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) objects.
 
 ```html
 <form>
@@ -176,7 +185,7 @@ The above comes out as:
 ```ts
 {
     a_string: 'bar',
-    a_number: 3,
+    a_number: '3', // strings unless you opt into castNumbers or transform
     an_array: ['foo', 'bar'],
     an_object: {
         fox: 'fox',
@@ -213,7 +222,7 @@ const RouteSchema = z.object({ name: z.string() });
 
 export const actions = {
     default: async ({ request, locals }) => {
-        const { success, value } = await bodyguard.softForm(request, RouteSchema.parse);
+        const { success, value } = await bodyguard.softForm(request, RouteSchema);
         /**
          * success: boolean
          * error?: Error
@@ -262,7 +271,7 @@ app.use(
 const RouteSchema = z.object({ name: z.string() });
 
 app.post('/page', (c) => {
-    const { success, value } = await c.locals.bodyguard.softForm(c.request, RouteSchema.parse);
+    const { success, value } = await c.locals.bodyguard.softForm(c.request, RouteSchema);
     /**
      * success: boolean
      * error?: Error
@@ -309,6 +318,7 @@ Below are the methods and types available in the Bodyguard class.
 - `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
 - `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
+- `transform?`: `(value: JSONLike) => JSONLike | Promise<JSONLike>` - Applied after parsing and before validation (form, JSON, and `pat` / `softPat`). Use this to coerce selected fields by schema shape. Default: `undefined`
 
 #### `BodyguardFormConfig` (extends `BodyguardConfig`, used in `form()` and `softForm()`)
 
@@ -318,6 +328,7 @@ Below are the methods and types available in the Bodyguard class.
 - `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
 - `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
+- `transform?`: `(value: JSONLike) => JSONLike | Promise<JSONLike>` - Applied after parsing and before validation. Default: `undefined`
 - `convertPluses?`: `boolean` - Whether to convert `+` to spaces in urlencoded form data. Default: `false`
 - `maxFiles?`: `number` - Maximum allowed number of files in the body. Default: `Infinity`
 - `maxFilenameLength?`: `number` - Maximum allowed length of a filename in the body. Default: `255`
@@ -341,6 +352,12 @@ Below are the methods and types available in the Bodyguard class.
 - `value?`: `T`
 
 #### `BodyguardValidator<T = JSONLike> = (obj: JSONLike) => T`
+
+A throwing function validator. Standard Schema v1 objects are also accepted anywhere a validator is accepted; the result type is then `StandardSchemaV1.InferOutput<T>`.
+
+`StandardSchemaV1` (type) and `isStandardSchema()` are re-exported from the package entry.
+
+`assignNestedValue`, `extractNestedKey`, and `possibleCast` are also exported for clients that need to match Bodyguard's form-key grammar.
 
 ---
 

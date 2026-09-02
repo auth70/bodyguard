@@ -1,3 +1,5 @@
+import type { StandardSchemaV1 } from "./standard.js";
+
 export const MAX_KEYS = 100;
 export const MAX_DEPTH = 10;
 export const MAX_SIZE = 1024 * 1024;
@@ -30,7 +32,29 @@ export const ERRORS = {
 
 export type State = 'START' | 'KEY' | 'VALUE';
 
+export type JSONLike =
+    | { [property: string]: JSONLike }
+    | readonly JSONLike[]
+    | string
+    | number
+    | boolean
+    | File
+    | null;
+
 export type BodyguardValidator<T extends JSONLike = JSONLike> = (data: unknown) => T;
+
+/** A throwing function validator or a Standard Schema v1 object. */
+export type BodyguardAcceptedValidator = BodyguardValidator | StandardSchemaV1;
+
+/**
+ * Output type of a validator passed to Bodyguard methods.
+ * Standard Schema objects infer `InferOutput`; function validators infer `ReturnType`;
+ * omitted validators infer `TDefault`.
+ */
+export type BodyguardValidatorOutput<T, TDefault = JSONLike> =
+    T extends StandardSchemaV1 ? StandardSchemaV1.InferOutput<T> :
+    T extends BodyguardValidator ? ReturnType<T> :
+    TDefault;
 
 export interface BodyguardConfig {
     /** The maximum number of keys */
@@ -45,6 +69,8 @@ export interface BodyguardConfig {
     castNumbers: boolean;
     /** Automatically cast booleans from strings */
     castBooleans: boolean;
+    /** Transform parsed data after parsing and before validation */
+    transform?: (value: JSONLike) => JSONLike | Promise<JSONLike>;
 }
 
 export interface BodyguardFormConfig extends BodyguardConfig {
@@ -57,15 +83,6 @@ export interface BodyguardFormConfig extends BodyguardConfig {
     /** Allow list for content types in a multipart form */
     allowedContentTypes: string[] | undefined;
 }
-
-export type JSONLike =
-    | { [property: string]: JSONLike }
-    | readonly JSONLike[]
-    | string
-    | number
-    | boolean
-    | File
-    | null;
 
 /**
  * A standard generic issue. This is based on the Zod issue type, but may be thrown by other libraries through a possible rethrowing adapter.
@@ -83,7 +100,7 @@ export type GenericIssue = {
 
 export type GenericError = { issues?: GenericIssue[]; message?: string };
 
-export type BodyguardError<ErrorType = GenericError, ValueType extends JSONLike = Record<string, any>> = {
+export type BodyguardError<ErrorType = GenericError, ValueType = JSONLike> = {
     success: false;
     /** The error message */
     error: ErrorType;
@@ -91,13 +108,13 @@ export type BodyguardError<ErrorType = GenericError, ValueType extends JSONLike 
     value?: ValueType;
 };
 
-export type BodyguardSuccess<ValueType extends JSONLike = Record<string, any>> = {
+export type BodyguardSuccess<ValueType = JSONLike> = {
     success: true;
     value: ValueType;
 };
 
 export type BodyguardResult<
-    ValueType extends JSONLike = Record<string, any>,
+    ValueType = JSONLike,
     ErrorType = GenericError,
 > = BodyguardSuccess<ValueType> | BodyguardError<ErrorType, ValueType>;
 
@@ -143,6 +160,17 @@ export function possibleCast(value: string, config: BodyguardConfig | BodyguardF
     return value;
 }
 
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Returns true when a form-key segment is refused to prevent prototype pollution.
+ * @param {string} key - A path segment name (without any `[index]` suffix)
+ * @returns {boolean} Whether the key is forbidden
+ */
+function isForbiddenKey(key: string): boolean {
+    return FORBIDDEN_KEYS.has(key);
+}
+
 /**
  * Assign a nested value to an object
  * @param {Record<string, any>} obj - The object to assign to
@@ -158,6 +186,10 @@ export function assignNestedValue(obj: Record<string, any>, path: string[], valu
         if (arrayMatch && arrayMatch[1]) {
             const key = arrayMatch[1];
             const index = arrayMatch[2];
+
+            if (isForbiddenKey(key)) {
+                throw new Error(ERRORS.INVALID_INPUT);
+            }
 
             if (i === path.length - 1) { // last segment
                 if (index !== undefined) { // Explicit index

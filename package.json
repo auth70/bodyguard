@@ -1,6 +1,6 @@
 {
   "name": "@auth70/bodyguard",
-  "version": "1.7.3",
+  "version": "1.8.0",
   "description": "Fetch API compatible streaming JSON and form data body parser and guard",
   "keywords": [
     "request",
@@ -33,14 +33,14 @@
   "license": "MIT",
   "dependencies": {
     "@apeleghq/multipart-parser": "^1.0.21",
-    "@streamparser/json": "^0.0.22"
+    "@streamparser/json": "^0.0.26"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
-    "@vitest/coverage-v8": "^4.1.9",
-    "vitest": "^4.1.9",
-    "typescript": "^6.0.3",
-    "zod": "^4.4.3"
+    "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "vitest": "^4.1.11",
+    "typescript": "^7.0.2",
+    "zod": "^4.5.4"
   },
   "exports": {
     ".": {

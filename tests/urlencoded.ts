@@ -337,6 +337,36 @@ describe('URLEncoded tests', () => {
         }
     });
 
+    it('fails on constructor and prototype segments (softForm with urlencoded)', async () => {
+        const bodyguard = new Bodyguard();
+
+        const constructorResult = await bodyguard.softForm(new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "constructor=a"
+        }));
+
+        expect(constructorResult.success).toBe(false);
+        if (!constructorResult.success) {
+            expect(constructorResult.error.message).toBe(ERRORS.INVALID_INPUT);
+        }
+
+        const prototypeResult = await bodyguard.softForm(new Request("http://localhost", {
+            method: "POST",
+            headers: {
+                "content-type": "application/x-www-form-urlencoded"
+            },
+            body: "prototype=a"
+        }));
+
+        expect(prototypeResult.success).toBe(false);
+        if (!prototypeResult.success) {
+            expect(prototypeResult.error.message).toBe(ERRORS.INVALID_INPUT);
+        }
+    });
+
     it('fails on too deep input (softForm with urlencoded)', async () => {
         const bodyguard = new Bodyguard({
             maxDepth: 1,

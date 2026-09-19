@@ -1,11 +1,11 @@
 import type { BodyguardValidator, JSONLike, BodyguardConfig, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardFormConfig, GenericIssue, GenericError, BodyguardAcceptedValidator, BodyguardValidatorOutput } from "./lib.js";
-import { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, assignNestedValue, extractNestedKey, possibleCast } from "./lib.js";
+import { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, assignNestedValue, decodeFormComponent, extractNestedKey, parseContentType, possibleCast } from "./lib.js";
 import { FormDataParser, JSONParser, TextParser, URLParamsParser } from "./parser.js";
 import type { StandardSchemaV1 } from "./standard.js";
 import { isStandardSchema, standardIssueToGenericIssue } from "./standard.js";
 
 export type { GenericIssue, GenericError, BodyguardError, BodyguardResult, BodyguardSuccess, BodyguardConfig, BodyguardFormConfig, BodyguardValidator, BodyguardAcceptedValidator, BodyguardValidatorOutput, JSONLike, StandardSchemaV1 };
-export { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, FormDataParser, JSONParser, TextParser, URLParamsParser, assignNestedValue, extractNestedKey, possibleCast, isStandardSchema };
+export { ERRORS, MAX_DEPTH, MAX_KEYS, MAX_KEY_LENGTH, MAX_SIZE, FormDataParser, JSONParser, TextParser, URLParamsParser, assignNestedValue, decodeFormComponent, extractNestedKey, possibleCast, isStandardSchema };
 
 export class Bodyguard {
 
@@ -33,6 +33,7 @@ export class Bodyguard {
      *     maxKeyLength: 100, // Maximum length of a key in characters.
      *     castBooleans: false, // Whether to cast boolean values to boolean type.
      *     castNumbers: false, // Whether to cast numeric values to number type.
+     *     convertPluses: true, // Whether to convert plus signs to spaces in urlencoded form data.
      * });
      */
     constructor(config?: Partial<BodyguardConfig | BodyguardFormConfig>) {
@@ -43,7 +44,7 @@ export class Bodyguard {
             maxKeyLength: config?.maxKeyLength && typeof config.maxKeyLength === 'number' && config.maxKeyLength > 0 ? config.maxKeyLength : MAX_KEY_LENGTH,
             castBooleans: config?.castBooleans !== undefined && typeof config.castBooleans === 'boolean' ? config.castBooleans : false,
             castNumbers: config?.castNumbers !== undefined && typeof config.castNumbers === 'boolean' ? config.castNumbers : false,
-            convertPluses: (config as Partial<BodyguardFormConfig>)?.convertPluses !== undefined && typeof (config as Partial<BodyguardFormConfig>).convertPluses === 'boolean' ? (config as Partial<BodyguardFormConfig>).convertPluses : false,
+            convertPluses: (config as Partial<BodyguardFormConfig>)?.convertPluses !== undefined && typeof (config as Partial<BodyguardFormConfig>).convertPluses === 'boolean' ? (config as Partial<BodyguardFormConfig>).convertPluses : true,
             maxFiles: typeof (config as Partial<BodyguardFormConfig>)?.maxFiles === 'number' && (config as Partial<BodyguardFormConfig>).maxFiles! > -1 ? (config as Partial<BodyguardFormConfig>).maxFiles : Infinity,
             maxFilenameLength: typeof (config as Partial<BodyguardFormConfig>)?.maxFilenameLength === 'number' && (config as Partial<BodyguardFormConfig>).maxFilenameLength! > 0 ? (config as Partial<BodyguardFormConfig>).maxFilenameLength : 255,
             allowedContentTypes: (config as Partial<BodyguardFormConfig>)?.allowedContentTypes && Array.isArray((config as Partial<BodyguardFormConfig>).allowedContentTypes) ? (config as Partial<BodyguardFormConfig>).allowedContentTypes : undefined,
@@ -98,27 +99,18 @@ export class Bodyguard {
         validator?: T,
         config?: Partial<BodyguardConfig | BodyguardFormConfig>
     ): Promise<BodyguardResult<BodyguardValidatorOutput<T>, E>> {
-        const contentType = input.headers.get("content-type");
-        if (!contentType || contentType === '') {
+        let kind: "form" | "json" | "text";
+        try {
+            kind = this.bodyKind(input);
+        } catch(e: unknown) {
             return {
                 success: false,
-                error: new Error(ERRORS.NO_CONTENT_TYPE) as E
+                error: e as E
             };
         }
-        if (contentType === "application/x-www-form-urlencoded") {
-            return await this.softForm(input, validator, config);
-        } else if (contentType.startsWith("multipart/form-data")) {
-            return await this.softForm(input, validator, config);
-        } else if (contentType === "application/json") {
-            return await this.softJson(input, validator, config);
-        } else if (contentType === "text/plain") {
-            return await this.softText(input, validator, config) as BodyguardResult<BodyguardValidatorOutput<T>, E>;
-        } else {
-            return {
-                success: false,
-                error: new Error(ERRORS.INVALID_CONTENT_TYPE) as E
-            };
-        }
+        if (kind === "form") return await this.softForm(input, validator, config);
+        if (kind === "json") return await this.softJson(input, validator, config);
+        return await this.softText(input, validator, config) as BodyguardResult<BodyguardValidatorOutput<T>, E>;
     }
 
     /**
@@ -135,19 +127,27 @@ export class Bodyguard {
         validator?: T,
         config?: Partial<BodyguardConfig | BodyguardFormConfig>
     ): Promise<BodyguardValidatorOutput<T>> {
+        const kind = this.bodyKind(input);
+        if (kind === "form") return await this.form(input, validator, config);
+        if (kind === "json") return await this.json(input, validator, config);
+        return await this.text(input, validator, config) as BodyguardValidatorOutput<T>;
+    }
+
+    /**
+     * Tells which parser a Request or Response calls for, by the media type of its Content-Type.
+     * Parameters such as `charset=UTF-8` take no part in the choice.
+     * @param {Request | Response} input - Request or Response to read the header from.
+     * @return {"form" | "json" | "text"} - The kind of body.
+     * @throws {Error} - If content-type is not present or is not one that Bodyguard parses.
+     */
+    private bodyKind(input: Request | Response): "form" | "json" | "text" {
         const contentType = input.headers.get("content-type");
         if (!contentType || contentType === '') throw new Error(ERRORS.NO_CONTENT_TYPE);
-        if (contentType === "application/x-www-form-urlencoded") {
-            return await this.form(input, validator, config);
-        } else if (contentType.startsWith("multipart/form-data")) {
-            return await this.form(input, validator, config);
-        } else if (contentType === "application/json") {
-            return await this.json(input, validator, config);
-        } else if (contentType === "text/plain") {
-            return await this.text(input, validator, config) as BodyguardValidatorOutput<T>;
-        } else {
-            throw new Error(ERRORS.INVALID_CONTENT_TYPE);
-        }
+        const { type } = parseContentType(contentType);
+        if (type === "application/x-www-form-urlencoded" || type === "multipart/form-data") return "form";
+        if (type === "application/json") return "json";
+        if (type === "text/plain") return "text";
+        throw new Error(ERRORS.INVALID_CONTENT_TYPE);
     }
 
     private async formInternal<
@@ -162,16 +162,9 @@ export class Bodyguard {
         const contentType = input.headers.get("content-type");
         if (!contentType || contentType === '') throw new Error(ERRORS.NO_CONTENT_TYPE);
 
-        const bodyType = contentType === "application/x-www-form-urlencoded" ? "params" : "formdata";
-
-        let boundary = "";
-        if(contentType.includes("boundary")) {
-            const match = contentType.match(/boundary=(.*)/);
-            if (!match || !match[1]) {
-                throw new Error(ERRORS.INVALID_CONTENT_TYPE);
-            }
-            boundary = match[1];
-        }
+        const { type, parameters } = parseContentType(contentType);
+        const bodyType = type === "application/x-www-form-urlencoded" ? "params" : "formdata";
+        const boundary = parameters.boundary ?? "";
 
         if(bodyType === "formdata" && !boundary) throw new Error(ERRORS.INVALID_CONTENT_TYPE);
 
@@ -408,7 +401,7 @@ export class Bodyguard {
             maxKeyLength: config?.maxKeyLength && typeof config.maxKeyLength === 'number' && config.maxKeyLength > 0 ? config.maxKeyLength : this.config.maxKeyLength,
             castBooleans: config?.castBooleans !== undefined && typeof config.castBooleans === 'boolean' ? config.castBooleans : this.config.castBooleans,
             castNumbers: config?.castNumbers !== undefined && typeof config.castNumbers === 'boolean' ? config.castNumbers : this.config.castNumbers,
-            convertPluses: (config as Partial<BodyguardFormConfig>)?.convertPluses !== undefined && typeof (config as Partial<BodyguardFormConfig>).convertPluses === 'boolean' ? (config as Partial<BodyguardFormConfig>).convertPluses : false,
+            convertPluses: (config as Partial<BodyguardFormConfig>)?.convertPluses !== undefined && typeof (config as Partial<BodyguardFormConfig>).convertPluses === 'boolean' ? (config as Partial<BodyguardFormConfig>).convertPluses : (this.config as BodyguardFormConfig).convertPluses,
             maxFiles: typeof (config as Partial<BodyguardFormConfig>)?.maxFiles === 'number' && (config as Partial<BodyguardFormConfig>).maxFiles! > -1 ? (config as Partial<BodyguardFormConfig>).maxFiles : (this.config as BodyguardFormConfig).maxFiles,
             maxFilenameLength: typeof (config as Partial<BodyguardFormConfig>)?.maxFilenameLength === 'number' ? (config as Partial<BodyguardFormConfig>).maxFilenameLength : (this.config as BodyguardFormConfig).maxFilenameLength,
             allowedContentTypes: (config as Partial<BodyguardFormConfig>)?.allowedContentTypes && Array.isArray((config as Partial<BodyguardFormConfig>).allowedContentTypes) ? (config as Partial<BodyguardFormConfig>).allowedContentTypes : (this.config as BodyguardFormConfig).allowedContentTypes,

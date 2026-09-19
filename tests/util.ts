@@ -90,3 +90,43 @@ export function createMultipartRequest(formData: {[key: string]: any}, options?:
         duplex: "half"
     } as any)), boundary];
 }
+
+/**
+ * A urlencoded request as a browser posts it. URLSearchParams is the serializer a native form post
+ * uses, so brackets arrive percent-encoded and spaces arrive as pluses.
+ */
+export function createUrlencodedRequest(pairs: [name: string, value: string][]): Request {
+    return new Request("http://localhost", {
+        method: "POST",
+        headers: {
+            "content-type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams(pairs).toString()
+    });
+}
+
+/** A multipart request as a browser posts it, written by the platform's own FormData serializer. */
+export function createFormDataRequest(pairs: [name: string, value: string | File][]): Request {
+    const formData = new FormData();
+    for (const [name, value] of pairs) formData.append(name, value);
+    return new Request("http://localhost", { method: "POST", body: formData });
+}
+
+/** A request whose body arrives in chunks of `size` bytes. */
+export function createChunkedRequest(bytes: Uint8Array, contentType: string, size: number): Request {
+    const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+            for (let i = 0; i < bytes.length; i += size) controller.enqueue(bytes.slice(i, i + size));
+            controller.close();
+        }
+    });
+
+    return new Request("http://localhost", ({
+        method: "POST",
+        headers: {
+            "content-type": contentType
+        },
+        body: stream,
+        duplex: "half"
+    } as any));
+}

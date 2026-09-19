@@ -67,6 +67,7 @@ const bodyguard = new Bodyguard({
     maxKeyLength: 100, // Default: Allows up to 100 characters per key
     castNumbers: false, // Default: Does NOT automatically cast numbers in form data
     castBooleans: false, // Default: Does NOT automatically cast "true" and "false" as boolean in form data
+    convertPluses: true, // Default: Reads "+" as a space in URL-encoded form data, as browsers write it
 });
 ```
 
@@ -118,21 +119,26 @@ Even though these examples focus on Request bodies, there is nothing stopping yo
 
 ### JSON
 
-JSON data is returned like `JSON.parse()` would return it.
+JSON data is returned like `JSON.parse()` would return it. The body has to be one whole document. A document that stops half-way is refused, and so is anything but whitespace after it.
 
 ### Multipart form data
 
-Trailing newlines are stripped from the end of values.
+Values are returned as they were posted, including newlines.
 
 ### URL-encoded form data
 
-Values are decoded using `decodeURIComponent()`.
+Names and values are decoded the way the [URL Standard](https://url.spec.whatwg.org/#urlencoded-parsing) decodes them:
 
-#### Handling plus (+) signs URL-encoded forms
+- `+` is a space
+- `%XX` is a byte
+- the bytes are UTF-8
+- a form field named `tags[]` is posted as `tags%5B%5D`, and arrives as `tags[]`
+- a `%` that is not followed by two hex digits is kept as it is
+- bytes that are not UTF-8 become `U+FFFD`, so a malformed body does not throw
 
-If you are submitting a javascript-free form, you may want to convert `+` to spaces in the form data, as browsers regularly transform spaces into pluses when submitting urlencoded forms. Javascript submitted forms don't have this problem.
+A browser writes a space as `+` and a plus sign as `%2B`, so `1+1 = 2` is posted as `1%2B1+%3D+2`. The `+` is read before the percent escapes to keep the two apart.
 
-You can do this automatically by passing `convertPluses: true` as an option to `form()` or `softForm()`. It won't affect multipart form data, so consider using `enctype="application/x-www-form-urlencoded"` in your form tag if you need proper spaces and plus signs. Note that this is disabled by default, and if you enable it, you won't be able to distinguish between spaces and pluses in the form data.
+A client that builds its body by hand may send a plus sign as it is. If yours does, pass `convertPluses: false` to `form()` or `softForm()` to leave `+` alone; its spaces then have to arrive as `%20`. Multipart form data has no such encoding and is never touched.
 
 ### Common form data parsing
 
@@ -154,14 +160,16 @@ Empty strings are returned as empty strings (`""`), not `null` or `undefined`.
 
 #### Form field name grammar
 
-Bodyguard uses the same key grammar for `application/x-www-form-urlencoded` and `multipart/form-data`. The parsers are `extractNestedKey` (split on `.`) and `assignNestedValue` (optional `[index]` / `[]` suffix). Both are exported from the package, along with `possibleCast`, so other code can pin parity against them.
+Bodyguard uses the same key grammar for `application/x-www-form-urlencoded` and `multipart/form-data`. The parsers are `extractNestedKey` (split on `.`) and `assignNestedValue` (optional `[index]` / `[]` suffix). Both are exported from the package, along with `possibleCast` and `decodeFormComponent`, so other code can pin parity against them.
 
 - `a.b` nests: `a.b=1` → `{ a: { b: "1" } }`
-- `tags[]` appends: `tags[]=a&tags[]=b` → `{ tags: ["a", "b"] }`
-- `items[0].name` indexes: `items[0].name=Ada` → `{ items: [{ name: "Ada" }] }`. Sparse holes are allowed (`items[2]=x` leaves index 0 and 1 empty).
-- A repeated **plain** name keeps the last value: `a=1&a=2` → `{ a: "2" }`. Use `[]` when you want an array.
-- `__proto__`, `constructor`, and `prototype` segments are refused.
-- File parts stay [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) objects.
+- `tags[]` appends: `tags[]=a&tags[]=b` becomes `{ tags: ["a", "b"] }`
+- `items[0].name` indexes: `items[0].name=Ada` becomes `{ items: [{ name: "Ada" }] }`. Sparse holes are allowed (`items[2]=x` leaves index 0 and 1 empty). An index has to stay below `maxKeys`: a body of that many keys cannot fill a longer list, and `a[4294967294]=x` would otherwise hand your validator four billion holes. A larger index fails with `INDEX_TOO_LARGE`.
+- `rows[].name` builds a list of objects without indices. The item being built goes on until a key comes that it already holds, and that key starts the next item: `rows[].name=a&rows[].age=1&rows[].name=b&rows[].age=2` becomes `{ rows: [{ name: "a", age: "1" }, { name: "b", age: "2" }] }`. Each item has to begin with a field that always posts, such as a text input or a hidden id. An unticked checkbox posts nothing, so nothing marks the start of an item that begins with one, or with a `[]` list of its own. Give those explicit indices (`rows[0].done`).
+- A repeated **plain** name keeps the last value. `a=1&a=2` becomes `{ a: "2" }`. Use `[]` when you want an array.
+- Keys have to agree on what a name is. `a=1&a.b=2` asks for `a` to be a string and an object, and fails with `KEY_CONFLICT`, as does any other mix of a plain value, an object and a list under one name.
+- `__proto__`, `constructor`, and `prototype` segments are refused. A name that every object inherits, such as `toString`, is an ordinary key of the result.
+- File parts stay [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) objects. A file input that was left empty comes back as an empty `File` (no name, no bytes), as it does from `request.formData()`, and does not count toward `maxFiles`.
 
 ```html
 <form>
@@ -357,9 +365,9 @@ Below are the methods and types available in the Bodyguard class.
 #### `BodyguardConfig`
 
 - `maxSize?`: `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
-- `maxKeys?`: `number` - Maximum allowed number of keys in the body. Default: `100`
-- `maxDepth?`: `number` - Maximum allowed depth of the body. Default: `10`
-- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
+- `maxKeys?`: `number` - Maximum allowed number of keys in the body. In a form, every pair or part with a name is a key, each time it is repeated, and an explicit index (`items[3]`) has to stay below this number. Default: `10000`
+- `maxDepth?`: `number` - Maximum allowed depth of the body, which is that of the parsed value. A list is a level of its own, so `items[0].name` is 3 deep, as `{"items":[{"name":"x"}]}` is. Default: `100`
+- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. In URL-encoded data, of the decoded key. Default: `1000`
 - `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 - `transform?`: `(value: JSONLike) => JSONLike | Promise<JSONLike>` - Applied after parsing and before validation (form, JSON, and `pat` / `softPat`). Use this to coerce selected fields by schema shape. Default: `undefined`
@@ -367,16 +375,16 @@ Below are the methods and types available in the Bodyguard class.
 #### `BodyguardFormConfig` (extends `BodyguardConfig`, used in `form()` and `softForm()`)
 
 - `maxSize?`: `number` - Maximum allowed size of the body in bytes. Default: `1024 * 1024 * 1` (1MB)
-- `maxKeys?`: `number` - Maximum allowed number of keys in the body. Default: `100`
-- `maxDepth?`: `number` - Maximum allowed depth of the body. Default: `10`
-- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. Default: `100`
+- `maxKeys?`: `number` - Maximum allowed number of keys in the body. In a form, every pair or part with a name is a key, each time it is repeated, and an explicit index (`items[3]`) has to stay below this number. Default: `10000`
+- `maxDepth?`: `number` - Maximum allowed depth of the body, which is that of the parsed value. A list is a level of its own, so `items[0].name` is 3 deep, as `{"items":[{"name":"x"}]}` is. Default: `100`
+- `maxKeyLength?`: `number` - Maximum allowed length of a key in the body. In URL-encoded data, of the decoded key. Default: `1000`
 - `castNumbers?`: `boolean` - Whether to cast numbers from strings in form data. Default: `false`
 - `castBooleans?`: `boolean` - Whether to cast `"true"` and `"false"` as booleans in form data. Default: `false`
 - `transform?`: `(value: JSONLike) => JSONLike | Promise<JSONLike>` - Applied after parsing and before validation. Default: `undefined`
-- `convertPluses?`: `boolean` - Whether to convert `+` to spaces in urlencoded form data. Default: `false`
-- `maxFiles?`: `number` - Maximum allowed number of files in the body. Default: `Infinity`
+- `convertPluses?`: `boolean` - Whether `+` is a space in urlencoded form data, as browsers write it. Default: `true`
+- `maxFiles?`: `number` - Maximum allowed number of files in the body. A file input that was left empty is not counted. Default: `Infinity`
 - `maxFilenameLength?`: `number` - Maximum allowed length of a filename in the body. Default: `255`
-- `allowedContentTypes?`: `string[]` - Allowed content types for file uploads. Default: `undefined`
+- `allowedContentTypes?`: `string[]` - Allowed content types for file uploads, as media types in lowercase without parameters (`image/png`). Fields that are not files are not checked. Default: `undefined`
 
 #### `BodyguardResult<T> = BodyguardSuccess<T> | BodyguardError<T>`
 
@@ -401,7 +409,24 @@ A throwing function validator. Standard Schema v1 objects are also accepted anyw
 
 `StandardSchemaV1` (type) and `isStandardSchema()` are re-exported from the package entry.
 
-`assignNestedValue`, `extractNestedKey`, and `possibleCast` are also exported for clients that need to match Bodyguard's form-key grammar.
+`assignNestedValue`, `extractNestedKey`, `possibleCast` and `decodeFormComponent` are also exported for clients that need to match Bodyguard's form-key grammar. `decodeFormComponent(input, plusAsSpace = true)` decodes a name or a value of a URL-encoded body, given as a string or as bytes. `assignNestedValue(obj, path, value, maxLength = MAX_KEYS)` throws when a key contradicts an earlier one or an index reaches `maxLength`. `possibleCast` only casts.
+
+#### Error codes
+
+Bodyguard's own errors are `Error` instances whose `message` is one of the `ERRORS` constants, which the package exports:
+
+| Code | When |
+| --- | --- |
+| `BODY_NOT_AVAILABLE` | The request or response has no body. |
+| `NO_CONTENT_TYPE`, `INVALID_CONTENT_TYPE` | The `Content-Type` header is missing, is not one Bodyguard parses, names no boundary for a multipart body, or is not among `allowedContentTypes` for a file. |
+| `MAX_SIZE_EXCEEDED` | The body is larger than `maxSize`. |
+| `TOO_MANY_KEYS`, `KEY_TOO_LONG`, `TOO_DEEP` | The body goes beyond `maxKeys`, `maxKeyLength` or `maxDepth`. |
+| `TOO_MANY_FILES`, `FILENAME_TOO_LONG` | The form goes beyond `maxFiles` or `maxFilenameLength`. |
+| `INDEX_TOO_LARGE` | A form key names a list index at or above `maxKeys`. |
+| `KEY_CONFLICT` | Two form keys disagree on what a name is, as `a=1&a.b=2` do. |
+| `INVALID_INPUT` | A forbidden key (`__proto__`, `constructor`, `prototype`), or a JSON body that is not one whole document. |
+
+A validator's errors are whatever it throws. A malformed key segment (`a[x]`) and a malformed multipart body fail with a message of their own.
 
 ---
 
@@ -493,7 +518,7 @@ Parses raw UTF-8 text into a string. The byte limit is enforced but no key or de
 
 #### `Bodyguard.softPat<ValidatorType, ErrorType>(input, validator, options): Promise<BodyguardResult<ReturnType<ValidatorType>, ErrorType>>`
 
-Parses a request or response body into a JavaScript object. Internally uses `softJson()` or `softForm()` depending on the content type. If an error occurs, it is returned instead of throwing.
+Parses a request or response body into a JavaScript object. Internally uses `softJson()`, `softForm()` or `softText()` depending on the media type of the `Content-Type` header, whatever its case and its parameters (`application/json; charset=utf-8` is JSON). If an error occurs, it is returned instead of throwing.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
@@ -511,7 +536,7 @@ Returns a `BodyguardResult`:
 
 #### `Bodyguard.pat(input, validator, options): Promise<ReturnType<ValidatorType>>`
 
-Parses a request or response body into a JavaScript object. Internally uses `json()` or `form()` depending on the content type. Errors are thrown.
+Parses a request or response body into a JavaScript object. Internally uses `json()`, `form()` or `text()` depending on the media type of the `Content-Type` header, whatever its case and its parameters. Errors are thrown.
 
 - `input: Request | Response` - Fetch API compatible input.
 - `validator?: ValidatorType extends BodyguardValidator` - Optional validator to validate the parsed object against.
